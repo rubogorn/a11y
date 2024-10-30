@@ -1,0 +1,204 @@
+init_testing:
+  description: >
+    Initialize the WCAG 2.2 testing process for {url}.
+    
+    Tasks:
+    1. Define test scope and requirements
+    2. Identify available testing tools
+    3. Create testing schedule
+    4. Set up test environment
+    
+    IMPORTANT: Only plan for implemented and available tests.
+    Do not include unavailable or unimplemented test tools.
+  expected_output: >
+    JSON testing plan with defined scope and requirements,
+    listing only available and implemented tests.
+  agent: compliance_controller
+
+validate_checkpoints:
+  description: >
+    Review WCAG 2.2 checkpoints for {url} and create testing tasks.
+    
+    Tasks:
+    1. Review available testing tools
+    2. Map test coverage to WCAG guidelines
+    3. Identify testing gaps
+    4. Create test execution plan
+    
+    IMPORTANT: Only consider implemented and functional tests.
+    Clearly mark untested guidelines as "not covered".
+  expected_output: >
+    List of required tests mapped to WCAG guidelines,
+    clearly indicating which guidelines can be tested.
+  agent: wcag_checkpoints
+  context:
+    - init_testing
+
+verify_tool_availability:
+  description: >
+    Verify the availability of required testing tools for {url}.
+    Confirm each tool's status before initiating testing.
+  expected_output: >
+    JSON list of available and unavailable tools.
+  agent: compliance_controller
+
+analyze_wcag_results:
+  description: >
+    Analyze accessibility test results for {url} and map them to WCAG 2.2 guidelines.
+    
+    Tasks:
+    1. Process raw test results using WCAGReferenceProcessor
+    2. Map each issue to specific WCAG criteria
+    3. Extract relevant descriptions and documentation
+    4. Generate detailed recommendations
+    5. Create structured report with:
+       - Issue categorization by WCAG principle
+       - Severity levels (A, AA, AAA)
+       - Implementation recommendations
+       - Documentation links
+    
+    IMPORTANT: Use the wcag.json reference data for accurate mapping
+    and complete documentation.
+  expected_output: >
+    JSON report with detailed WCAG mappings, recommendations,
+    and documentation links for each identified issue.
+  agent: wcag_checkpoints
+  context:
+    - validate_checkpoints
+  output_format: json
+
+analyze_static_content:
+  description: >
+    Analyze HTML structure and static content of {url}.
+    
+    Check for:
+    - Alternative text for images
+    - Proper heading hierarchy
+    - ARIA roles and landmarks
+    - Document structure
+    - Form accessibility
+    
+    IMPORTANT: Only report on completed analysis results.
+    Do not make assumptions about unanalyzed elements.
+  expected_output: >
+    JSON report of actual static analysis findings,
+    including only detected issues.
+  agent: accessibility_analyzer
+  context:
+    - validate_checkpoints
+
+run_pa11y_tests:
+  description: >
+    Execute and analyze Pa11y tests for {url}.
+    
+    Focus on:
+    - Keyboard navigation
+    - Focus management
+    - Form controls
+    - Error messages
+    
+    IMPORTANT: Only include actual Pa11y results.
+    If Pa11y fails, report the error without assumptions.
+  expected_output: >
+    JSON report containing only actual Pa11y findings.
+  agent: pa11y_analyzer
+  context:
+    - validate_checkpoints
+
+run_axe_tests:
+  description: >
+    Execute and analyze Axe Core tests for {url}.
+    
+    Focus on:
+    - Dynamic content
+    - JavaScript interactions
+    - AJAX updates
+    - SPA behavior
+    
+    IMPORTANT: Only process when Axe is implemented.
+    Report "not implemented" status if unavailable.
+  expected_output: >
+    JSON report of Axe Core results or implementation status.
+  agent: axe_analyzer
+  context:
+    - validate_checkpoints
+
+run_lighthouse_tests:
+  description: >
+    Execute and analyze Lighthouse tests for {url}.
+    
+    Check:
+    - Performance impact
+    - Mobile accessibility
+    - Progressive enhancement
+    - SEO aspects
+    
+    IMPORTANT: Only process when Lighthouse is implemented.
+    Report "not implemented" status if unavailable.
+  expected_output: >
+    JSON report of Lighthouse results or implementation status.
+  agent: lighthouse_analyzer
+  context:
+    - validate_checkpoints
+
+consolidate_results:
+  description: >
+    Merge and analyze all available test results for {url}.
+    
+    Process:
+    1. Check which tests were completed successfully
+    2. Merge results only from completed tests
+    3. Remove duplicate findings
+    4. Categorize by severity
+    5. Generate statistics
+    
+    IMPORTANT: Only include results from completed tests.
+    Clearly indicate which tests were not performed.
+  expected_output: >
+    Consolidated JSON report of actual findings only with the structure:
+    - test_name: Name of the tool (e.g., Pa11y, Axe, etc.)
+    - issue_type: Type of issue found
+    - severity: Severity level
+    - solution_recommendation: Recommended solution
+  agent: consolidation_agent
+  context:
+    - analyze_static_content
+    - run_pa11y_tests
+    # - run_axe_tests
+    # - run_lighthouse_tests
+
+create_remediation_plan:
+  description: >
+    Create remediation guidance for actual findings from {url}.
+    
+    Include for each real issue:
+    1. Specific solution steps
+    2. Code examples
+    3. Implementation guidelines
+    4. Best practices
+    
+    IMPORTANT: Only address actually detected issues.
+    Do not create solutions for hypothetical problems.
+  expected_output: >
+    JSON remediation plan addressing only real findings.
+  agent: remediation_specialist
+  context:
+    - consolidate_results
+
+validate_results:
+  description: >
+    Validate all test results and remediation plans for {url}.
+    
+    Review:
+    1. Test completion status
+    2. Finding accuracy
+    3. Solution appropriateness
+    4. Documentation completeness
+    
+    IMPORTANT: Only validate actual results and findings.
+    Reject any fictional or assumed data.
+  expected_output: >
+    Final JSON validation report for actual findings only.
+  agent: compliance_controller
+  context:
+    - create_remediation_plan

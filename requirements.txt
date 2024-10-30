@@ -1,0 +1,11 @@
+# requirements.txt
+crewai>=0.1.0
+beautifulsoup4>=4.9.3
+requests>=2.28.1
+pydantic>=2.0.0
+selenium>=4.1.0
+playwright>=1.28.0
+axe-core-selenium>=4.7.0
+pytest>=7.0.0
+black>=22.3.0
+isort>=5.10.1
