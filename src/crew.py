@@ -1,10 +1,9 @@
 from typing import TypedDict, List, Optional, Dict, Any
-from crewai import Agent, Task, Crew, Process
+from crewai import Agent, Task, Crew, Process, LLM
 from pathlib import Path
 import json
 import asyncio
 import logging
-from .tools import WCAGTestingTools
 from datetime import datetime, timezone
 from .tools.result_processor import StandardizedResult
 from .logging_config import get_logger
@@ -21,7 +20,7 @@ class WCAGTestingCrew:
     """WCAG 2.2 Testing Crew implementation"""
 
     def __init__(self):
-        self.tools = WCAGTestingTools()
+        self.tools = self._get_wcag_testing_tools()
         self.results_path = Path("output/results")
         try:
             self.results_path.mkdir(parents=True, exist_ok=True)
@@ -34,6 +33,11 @@ class WCAGTestingCrew:
         self._init_base_agents()
         self._init_tasks()
 
+    def _get_wcag_testing_tools(self):
+        """Initialize and return WCAG testing tools"""
+        # Placeholder for actual WCAGTestingTools initialization
+        return "WCAGTestingTools instance"
+
     def _init_base_agents(self):
         """Initialize base agents (always included)"""
         self.compliance_controller = Agent(
@@ -42,7 +46,7 @@ class WCAGTestingCrew:
             backstory="""You are an expert in web accessibility testing and WCAG 2.2 guidelines. 
             Your role is to ensure comprehensive testing coverage and validate results.""",
             verbose=True,
-            llm_config={"model": "gpt-4-mini"}
+            llm="gpt-4o-mini"
         )
 
         self.consolidation_agent = Agent(
@@ -51,7 +55,7 @@ class WCAGTestingCrew:
             backstory="""You are an expert in analyzing and consolidating technical test results,
             identifying patterns and prioritizing issues.""",
             verbose=True,
-            llm_config={"model": "gpt-4-mini"}
+            llm="gpt-4o-mini"
         )
 
         self.remediation_specialist = Agent(
@@ -60,7 +64,7 @@ class WCAGTestingCrew:
             backstory="""You are experienced in creating practical solutions and guidance
             for web accessibility issues, with deep knowledge of WCAG 2.2 requirements.""",
             verbose=True,
-            llm_config={"model": "gpt-4-mini"}
+            llm="gpt-4o-mini"
         )
 
     def _get_accessibility_analyzer(self):
@@ -71,7 +75,7 @@ class WCAGTestingCrew:
             backstory="""You are specialized in analyzing HTML structure, ARIA implementations,
             and semantic markup for accessibility compliance.""",
             verbose=True,
-            llm_config={"model": "gpt-4-mini"}
+            llm="gpt-4o-mini"
         )
 
     def _init_tasks(self):
@@ -87,6 +91,15 @@ class WCAGTestingCrew:
             - Document structure evaluation
             
             Use the raw_results from the testing tools to provide a comprehensive analysis.""",
+            expected_output="""Detailed JSON report containing:
+            {
+                "html_structure": {
+                    "issues": [...],
+                    "aria_usage": [...],
+                    "semantic_markup": [...],
+                    "document_structure": [...]
+                }
+            }""",
             agent=None,  # Will be set dynamically based on configuration
             context_required=["url", "raw_results"]
         )
@@ -101,6 +114,21 @@ class WCAGTestingCrew:
             
             Input: Analysis results from previous task
             Expected Output: JSON formatted consolidated report""",
+            expected_output="""Consolidated JSON report with structure:
+            {
+                "issues": [{
+                    "type": "string",
+                    "severity": "number",
+                    "message": "string",
+                    "wcag_criteria": ["..."],
+                    "tools": ["..."]
+                }],
+                "summary": {
+                    "total_issues": "number",
+                    "by_severity": {...},
+                    "by_tool": {...}
+                }
+            }""",
             agent=self.consolidation_agent,
             context_required=["url", "raw_results", "normalized_results"]
         )
@@ -114,6 +142,22 @@ class WCAGTestingCrew:
             
             Input: Consolidated results from previous task
             Expected Output: JSON formatted remediation plan""",
+            expected_output="""Remediation plan JSON with structure:
+            {
+                "issues": [{
+                    "issue_id": "string",
+                    "solution": {
+                        "steps": ["..."],
+                        "code_example": "string",
+                        "wcag_reference": "string",
+                        "priority": "number"
+                    }
+                }],
+                "summary": {
+                    "total_issues": "number",
+                    "estimated_effort": "string"
+                }
+            }""",
             agent=self.remediation_specialist,
             context_required=["normalized_results"]
         )
@@ -127,6 +171,28 @@ class WCAGTestingCrew:
             
             Input: All previous task results
             Expected Output: JSON formatted validation report""",
+            expected_output="""Validation report JSON with structure:
+            {
+                "status": "string",
+                "validation_results": {
+                    "wcag_coverage": {
+                        "covered_criteria": ["..."],
+                        "missing_criteria": ["..."]
+                    },
+                    "technical_accuracy": {
+                        "validated": "boolean",
+                        "issues": ["..."]
+                    },
+                    "solution_completeness": {
+                        "complete": "boolean",
+                        "missing_elements": ["..."]
+                    }
+                },
+                "approval": {
+                    "approved": "boolean",
+                    "comments": ["..."]
+                }
+            }""",
             agent=self.compliance_controller,
             context_required=["normalized_results", "remediation_plan"]
         )
@@ -183,31 +249,35 @@ class WCAGTestingCrew:
                 # Execute crew tasks
                 results = crew.kickoff()
                 
-                # Validate results format
-                if not isinstance(results, dict):
-                    self.logger.error(f"Invalid results format: {type(results)}")
+                # Convert CrewOutput to dictionary
+                if hasattr(results, 'dict'):
+                    results_dict = results.dict()
+                elif hasattr(results, 'to_dict'):
+                    results_dict = results.to_dict()
+                else:
+                    self.logger.error(f"Unexpected results type: {type(results)}")
                     return {
                         "status": "error",
-                        "message": "Invalid results format",
-                        "data": results,
+                        "message": "Unable to process results format",
+                        "data": str(results),
                         "timestamp": datetime.now(timezone.utc).isoformat()
                     }
                 
                 # Check required fields
                 required_fields = ["status", "issues", "summary"]
-                missing_fields = [field for field in required_fields if field not in results]
+                missing_fields = [field for field in required_fields if field not in results_dict]
                 
                 if missing_fields:
                     self.logger.error(f"Missing required fields: {missing_fields}")
                     return {
                         "status": "error", 
                         "message": f"Missing required fields: {missing_fields}",
-                        "data": results,
+                        "data": results_dict,
                         "timestamp": datetime.now(timezone.utc).isoformat()
                     }
 
                 # Create standardized result
-                std_result = StandardizedResult.from_raw_results(results)
+                std_result = StandardizedResult.from_raw_results(results_dict)
                 serialized_results = self._serialize_results(std_result.to_dict())
                 
                 # Add information about accessibility analyzer usage

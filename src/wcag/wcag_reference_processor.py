@@ -27,8 +27,14 @@ class WCAGReferenceProcessor:
                 "llm": {
                     "provider": "openai",
                     "config": {
-                        "model": "gpt-4-mini",
-                        "temperature": 0.3  # Lower temperature for more precise matches
+                        "model": "gpt-4o-mini",
+                        "temperature": 0.3
+                    }
+                },
+                "embedder": {
+                    "provider": "openai",
+                    "config": {
+                        "model": "text-embedding-ada-002"
                     }
                 }
             }
@@ -107,18 +113,22 @@ class WCAGReferenceProcessor:
             List of relevant WCAG criteria
         """
         try:
-            # Use JSONSearchTool to perform semantic search
-            search_result = await self.json_search.search(
-                f"Find WCAG criteria relevant to this accessibility issue: {issue_description}"
-            )
+            # Aufbau der Suchanfrage
+            query = {
+                "query": f"Find WCAG criteria relevant to this accessibility issue: {issue_description}",
+                "max_results": 3  # Begrenzt die Anzahl der Ergebnisse
+            }
             
-            # Process and validate the search results
-            if isinstance(search_result, list):
-                return search_result
-            elif isinstance(search_result, dict):
-                return [search_result]
+            # Verwendung der query-Methode statt search
+            search_results = await self.json_search.query(query)
+            
+            # Verarbeitung der Ergebnisse
+            if isinstance(search_results, list):
+                return search_results
+            elif isinstance(search_results, dict):
+                return [search_results]
             else:
-                self.logger.warning(f"Unexpected search result format: {type(search_result)}")
+                self.logger.warning(f"Unexpected search result format: {type(search_results)}")
                 return []
                 
         except Exception as e:

@@ -7,8 +7,9 @@ readme = "README.md"
 packages = [{include = "src"}]
 
 [tool.poetry.dependencies]
-python = ">=3.10,<4.0"
-crewai = "^0.10.0"
+python = ">=3.10,<=3.13"
+crewai = {extras = ["tools"], version = "^0.76.9"}
+crewai-tools = "^0.13.4"
 beautifulsoup4 = "^4.12.2"
 requests = "^2.31.0"
 pydantic = "^2.5.2"
@@ -17,7 +18,7 @@ playwright = "^1.40.0"
 aiofiles = "^24.1.0"
 
 [tool.poetry.group.dev.dependencies]
-pytest = "^7.4.3"
+pytest = ">=8.0.0"  # Aktualisiert für Kompatibilität mit crewai-tools
 pytest-asyncio = "^0.21.1"
 pytest-cov = "^4.1.0"
 black = "^23.11.0"
@@ -58,6 +59,6 @@ disallow_untyped_defs = true
 disallow_incomplete_defs = true
 
 [tool.pytest.ini_options]
-addopts = "--cov=src --cov-report=xml --cov-report=html"
+# addopts = "--cov=src --cov-report=xml --cov-report=html"
 testpaths = ["tests"]
 asyncio_mode = "auto"

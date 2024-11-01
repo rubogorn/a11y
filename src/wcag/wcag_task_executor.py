@@ -6,6 +6,10 @@ from datetime import datetime, timezone
 from src.wcag.wcag_reference_processor import WCAGReferenceProcessor
 from src.logging_config import get_logger
 
+# Standardisierte LLM Konfiguration für Task Execution
+TASK_LLM = "gpt-4o-mini"
+
+
 class WCAGTaskExecutor:
     """
     Executes WCAG analysis tasks using the WCAGReferenceProcessor.

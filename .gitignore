@@ -50,3 +50,4 @@ logs/
 # Node (for pa11y)
 node_modules/
 package-lock.json
+.DS_Store

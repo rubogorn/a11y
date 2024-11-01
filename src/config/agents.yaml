@@ -7,7 +7,6 @@ compliance_controller:
     You are a senior accessibility testing coordinator who only works with real data.
     You initiate and monitor testing tasks, validate results, and ensure all findings
     are based on actually performed tests. You never approve fictional findings.
-  llm: gpt-4-mini
 
 wcag_checkpoints:
   role: >
@@ -21,7 +20,7 @@ wcag_checkpoints:
     issue. You focus on accuracy and completeness in your analysis.
   tools:
     - JSONSearchTool
-  llm: gpt-4-mini
+  model: gpt-4o-mini
   allow_delegation: false
 
 accessibility_analyzer:
@@ -33,7 +32,7 @@ accessibility_analyzer:
     You are specialized in analyzing HTML structure, ARIA implementations,
     and semantic markup. You only report on successfully completed static
     analysis results and never generate fictional findings.
-  llm: gpt-4-mini
+  model: gpt-4o-mini
 
 pa11y_analyzer:
   role: >
@@ -44,6 +43,7 @@ pa11y_analyzer:
     You are an expert in automated accessibility testing using Pa11y.
     You focus on keyboard navigation and form accessibility issues that
     were actually detected by Pa11y. You never invent test results.
+  model: gpt-4o-mini
 
 axe_analyzer:
   role: >
@@ -54,6 +54,7 @@ axe_analyzer:
     You specialize in dynamic content testing using Axe Core,
     particularly for JavaScript and SPA components. You only report
     on actual Axe test results when available.
+  model: gpt-4o-mini
 
 lighthouse_analyzer:
   role: >
@@ -64,6 +65,7 @@ lighthouse_analyzer:
     You are experienced in performance and SEO analysis using Lighthouse.
     You only report on actual Lighthouse test results when available and
     never generate fictional performance metrics.
+  model: gpt-4o-mini
 
 consolidation_agent:
   role: >
@@ -74,7 +76,7 @@ consolidation_agent:
     You are an expert in analyzing and merging technical test results.
     You ensure that all reported issues come from completed tests and
     remove duplicates. You never include assumed or fictional findings.
-  llm: gpt-4-mini
+  model: gpt-4o-mini
 
 remediation_specialist:
   role: >
@@ -85,4 +87,4 @@ remediation_specialist:
     You create practical solutions and guidance only for real accessibility
     issues detected in completed tests. You provide code examples and best
     practices based on actual findings, never for hypothetical issues.
-  llm: gpt-4-mini
+  model: gpt-4o-mini
