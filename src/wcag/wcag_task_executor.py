@@ -41,15 +41,12 @@ class WCAGTaskExecutor:
             }
             
             # Process each issue from the raw results
-            ui_message("\nProcessing test results and mapping to WCAG criteria...")
+            self.logger.debug("\nProcessing test results and mapping to WCAG criteria...")
             
             normalized_results = raw_results.get("normalized_results", [])
             for index, issue in enumerate(normalized_results, 1):
-                ui_message(
-                    self.logger,
-                    f"Processing issue {index}/{len(normalized_results)}...",
-                    level="DEBUG"
-                )
+                self.logger.debug(f"Processing issue {index}/{len(normalized_results)}...")
+                ui_message(f"Processing issue {index}/{len(normalized_results)}...", level="DEBUG")
                 processed_issue = await self._process_single_issue(issue)
                 if processed_issue:
                     processed_results["issues"].append(processed_issue)
