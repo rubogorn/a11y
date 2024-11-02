@@ -249,44 +249,13 @@ class WCAGTestingCrew:
                 # Execute crew tasks
                 results = crew.kickoff()
                 
-                # Convert CrewOutput to dictionary
-                if hasattr(results, 'dict'):
-                    results_dict = results.dict()
-                elif hasattr(results, 'to_dict'):
-                    results_dict = results.to_dict()
-                else:
-                    self.logger.error(f"Unexpected results type: {type(results)}")
-                    return {
-                        "status": "error",
-                        "message": "Unable to process results format",
-                        "data": str(results),
-                        "timestamp": datetime.now(timezone.utc).isoformat()
-                    }
-                
-                # Check required fields
-                required_fields = ["status", "issues", "summary"]
-                missing_fields = [field for field in required_fields if field not in results_dict]
-                
-                if missing_fields:
-                    self.logger.error(f"Missing required fields: {missing_fields}")
-                    return {
-                        "status": "error", 
-                        "message": f"Missing required fields: {missing_fields}",
-                        "data": results_dict,
-                        "timestamp": datetime.now(timezone.utc).isoformat()
-                    }
-
-                # Create standardized result
-                std_result = StandardizedResult.from_raw_results(results_dict)
-                serialized_results = self._serialize_results(std_result.to_dict())
-                
-                # Add information about accessibility analyzer usage
-                serialized_results["accessibility_analyzer_used"] = context.get("use_accessibility_analyzer", False)
+                # Ensure results are in the correct format
+                results_dict = self._standardize_results(results, url)
                 
                 # Save results
-                self.save_results(serialized_results)
+                self.save_results(results_dict)
                 
-                return serialized_results
+                return results_dict
                     
             except Exception as e:
                 self.logger.error(f"Crew execution failed: {e}")
@@ -305,3 +274,70 @@ class WCAGTestingCrew:
             }
             self.save_results(error_results, "error_report.json")
             return error_results
+
+    def _standardize_results(self, results: Any, url: str) -> Dict[str, Any]:
+        """Standardize crew results to ensure all required fields are present"""
+        # Convert to dictionary if needed
+        if hasattr(results, 'dict'):
+            results_dict = results.dict()
+        elif hasattr(results, 'to_dict'):
+            results_dict = results.to_dict()
+        else:
+            results_dict = results if isinstance(results, dict) else {"data": str(results)}
+
+        # Extract or create required fields
+        issues = []
+        summary = {"total_issues": 0, "by_severity": {}, "by_tool": {}}
+
+        # Process validation results if present
+        if "validation_results" in results_dict:
+            validation = results_dict["validation_results"]
+            # Add WCAG coverage to summary
+            if "wcag_coverage" in validation:
+                summary["wcag_coverage"] = validation["wcag_coverage"]
+
+        # Process remediation plan if present
+        if "remediation_plan" in results_dict:
+            remediation = results_dict.get("remediation_plan", {})
+            remediation_issues = remediation.get("issues", [])
+            issues.extend(remediation_issues)
+            summary["total_issues"] = len(remediation_issues)
+
+        # Ensure all required fields are present
+        standardized_results = {
+            "status": results_dict.get("status", "completed"),
+            "issues": issues,
+            "summary": summary,
+            "url": url,
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        }
+
+        # Add any additional fields from original results
+        for key, value in results_dict.items():
+            if key not in standardized_results:
+                standardized_results[key] = value
+
+        return standardized_results
+
+    def save_results(self, results: Dict[str, Any], filename: str = None) -> None:
+        """Save crew results to a JSON file
+        
+        Args:
+            results: Dictionary containing the results to save
+            filename: Optional filename, defaults to timestamp-based name
+        """
+        try:
+            if not filename:
+                timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+                filename = f"crew_results_{timestamp}.json"
+
+            output_path = self.results_path / filename
+            
+            with open(output_path, 'w', encoding='utf-8') as f:
+                json.dump(results, f, indent=2, ensure_ascii=False)
+            
+            self.logger.info(f"Results saved to {output_path}")
+        
+        except Exception as e:
+            self.logger.error(f"Failed to save results: {e}")
+            raise

@@ -23,7 +23,7 @@ class WCAGTestingCLI:
     
     def __init__(self):
         # Initialize logger first
-        self.logger = get_logger('WCAGTestingCLI', log_dir='output/results/logs')
+        self.logger = get_logger('WCAGTestingCLI', log_dir='output/logs')
         self.logger.info("Initializing WCAGTestingCLI")
 
         # Initialize paths and core components
@@ -35,11 +35,15 @@ class WCAGTestingCLI:
             sys.exit(1)
         
         # Initialize components
-        self.tools = WCAGTestingTools()
-        self.crew = WCAGTestingCrew()
-        self.report_generator = ReportGenerator()
-        self.wcag_executor = WCAGTaskExecutor() # New: WCAG task executor
-        self.logger.info("WCAGTestingCLI initialized successfully")
+        try:
+            self.tools = WCAGTestingTools()
+            self.crew = WCAGTestingCrew()
+            self.report_generator = ReportGenerator()
+            self.wcag_executor = WCAGTaskExecutor()
+            self.logger.info("All components initialized successfully")
+        except Exception as e:
+            self.logger.error(f"Failed to initialize components: {e}")
+            sys.exit(1)
 
     def _is_valid_url(self, url: str) -> bool:
         """Validate if string is a valid URL"""
@@ -56,7 +60,7 @@ class WCAGTestingCLI:
         self.logger.info(f"Found {len(html_files)} HTML files in test-content directory")
         return html_files
 
-    def _create_file_server(self, html_file: Path) -> str:
+    def _create_file_server(self, html_file: Path) -> tuple[str, HTTPServer]:
         """Create temporary server for local HTML file"""
         self.logger.info(f"Setting up temporary server for {html_file}")
 
@@ -83,10 +87,12 @@ class WCAGTestingCLI:
 
         server_url = f"http://localhost:{port}"
         self.logger.info(f"Local server started at {server_url}")
-        return server_url
+        return server_url, server
 
-    def _get_input_choice(self) -> tuple[str, Optional[Path]]:
+    def _get_input_choice(self) -> tuple[str, Optional[Path], Optional[HTTPServer]]:
         """Get user input for testing source"""
+        server = None
+        
         while True:
             print("\nWCAG 2.2 Testing Tool")
             print("====================")
@@ -104,7 +110,7 @@ class WCAGTestingCLI:
                 url = input("Enter URL to test: ").strip()
                 if self._is_valid_url(url):
                     self.logger.info(f"User selected URL: {url}")
-                    return url, None
+                    return url, None, None
                 print("Invalid URL format. Please try again.")
                 
             elif choice == '2':
@@ -125,7 +131,8 @@ class WCAGTestingCLI:
                     if 1 <= file_choice <= len(html_files):
                         selected_file = html_files[file_choice - 1]
                         self.logger.info(f"User selected file: {selected_file}")
-                        return "", selected_file
+                        url, server = self._create_file_server(selected_file)
+                        return url, selected_file, server
                     self.logger.warning(f"Invalid file number selected: {file_choice}")
                     print("Invalid file number. Please try again.")
                 except ValueError:
@@ -183,12 +190,15 @@ class WCAGTestingCLI:
                     for principle, count in summary["by_principle"].items():
                         print(f"  {principle}: {count}")
 
-            # Process normalized results as before
+            # Process normalized results
             normalized_results = results.get("normalized_results", [])
             if not normalized_results:
                 self.logger.warning("No accessibility issues found or error in processing results")
                 print("\nNo accessibility issues found or error in processing results.")
                 return
+
+            # Display results summary
+            self.report_generator.display_results_summary(normalized_results)
 
             print("\nPhase 3: AI Analysis")
             print("-" * 50)
@@ -202,7 +212,7 @@ class WCAGTestingCLI:
                 if response == 'n':
                     self.logger.info("User chose to skip AI analysis")
                     print("\nSaving automated test results only...")
-                    output_dir = await self.report_generator.save_results(url, normalized_results, {"status": "automated_only"})
+                    output_dir = await self.report_generator.save_results(url, normalized_results)
                     self.logger.info(f"Automated results saved to: {output_dir}")
                     return
                 elif response == 'y':
@@ -223,17 +233,21 @@ class WCAGTestingCLI:
                 self.logger.info("Starting AI analysis phase")
                 crew_results = await self.crew.run(crew_config)
 
-                # Display and save results using report generator
-                self.report_generator.display_results_summary(normalized_results)
-                output_dir = await self.report_generator.save_results(url, normalized_results, crew_results)
-                self.logger.info(f"Results saved to: {output_dir}")
+                # Save results with AI analysis
+                output_dir = await self.report_generator.save_results(
+                    url, 
+                    normalized_results,
+                    crew_results
+                )
+                self.logger.info(f"All results saved to: {output_dir}")
+                print(f"\nResults saved to: {output_dir}")
                 
             except Exception as e:
                 self.logger.error(f"AI analysis failed: {str(e)}")
                 print(f"\nError in AI analysis: {str(e)}")
                 # Still save the tool results even if AI analysis fails
-                output_dir = await self.report_generator.save_results(url, normalized_results, {"error": str(e)})
-                self.logger.info(f"Error results saved to: {output_dir}")
+                output_dir = await self.report_generator.save_results(url, normalized_results)
+                self.logger.info(f"Automated results saved to: {output_dir}")
                     
         except Exception as e:
             self.logger.error(f"Test execution failed: {str(e)}")
@@ -243,16 +257,19 @@ class WCAGTestingCLI:
     async def main(self):
         """Main entry point"""
         try:
-            url, html_file = self._get_input_choice()
+            url, html_file, server = self._get_input_choice()
             
-            if html_file:
-                # Start local server for HTML file
-                url = self._create_file_server(html_file)
-                print(f"\nStarting local server for: {html_file.name}")
-            
-            await self.run_tests(url)
+            try:
+                await self.run_tests(url)
+            finally:
+                # Clean up server if it was created
+                if server:
+                    server.shutdown()
+                    server.server_close()
+                    self.logger.info("Local server stopped")
             
         except Exception as e:
+            self.logger.error(f"Application error: {e}")
             print(f"\nError running tests: {e}")
         
         print("\nDone! Press any key to exit...")

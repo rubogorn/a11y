@@ -1,25 +1,118 @@
 from pathlib import Path
 from datetime import datetime, timezone
 import json
-from typing import List, Dict, Any
+import asyncio
+import shutil
+import aiofiles
+from typing import List, Dict, Any, Optional, Tuple
 from src.logging_config import get_logger
+from src.wcag.wcag_mapper import WCAGReportMapper
 
 class ReportGenerator:
-    """Handles result reporting and file generation for WCAG testing"""
+    """
+    Handles result reporting and file generation for accessibility testing.
+    Supports both standard and WCAG 2.2 report formats.
+    """
     
     def __init__(self):
-        self.logger = get_logger('ReportGenerator', log_dir='output/results/logs')
+        self.logger = get_logger('ReportGenerator')
+        
+        # Initialize WCAG mapper
+        self.wcag_mapper = WCAGReportMapper()
+        
+        # Template and Style Configuration
+        self.template_path = Path("templates")
+        self.css_path = self.template_path / "report_styles.css"
+        
+        # Output directory configuration
+        self.output_base_path = Path("output/results")
+        try:
+            self.output_base_path.mkdir(parents=True, exist_ok=True)
+        except Exception as e:
+            self.logger.error(f"Failed to create output directory: {e}")
+            raise
 
-    def display_results_summary(self, results: list) -> None:
-        """Display summary of test results in the console"""
-        if not results:
+        # Style configurations
+        self.level_styles = {
+            "A": "level-a",
+            "AA": "level-aa",
+            "AAA": "level-aaa"
+        }
+        
+        self.severity_classes = {
+            1: "critical",
+            2: "serious",
+            3: "moderate",
+            4: "minor"
+        }
+
+    def generate_html_report(self, test_results: Dict[str, Any], config: Dict[str, Any]) -> str:
+        """
+        Generate HTML report from test results
+        
+        Args:
+            test_results: Dictionary containing test results
+            config: Configuration dictionary
+            
+        Returns:
+            HTML report as string
+        """
+        try:
+            # Überprüfen Sie, ob normalized_results existiert und nicht None ist
+            if "normalized_results" in test_results and test_results["normalized_results"]:
+                mapped_data = self.wcag_mapper.generate_report_data(
+                    test_results["normalized_results"],
+                    config.get("url", "")
+                )
+                test_results.update(mapped_data)
+            else:
+                # Wenn keine normalisierten Ergebnisse vorhanden sind, erstellen Sie einen Fehlerbericht
+                return self._generate_error_report("Keine normalisierten Testergebnisse verfügbar")
+            
+            html_parts = []
+            
+            # Generate report sections
+            html_parts.append(self._generate_html_header("WCAG 2.2 Accessibility Report"))
+            html_parts.append(self._generate_table_of_contents(test_results))
+            html_parts.append(self._generate_audit_details(config))
+            html_parts.append(self._generate_wcag_summary(test_results))
+            html_parts.append(self._generate_wcag_details(test_results))
+            html_parts.append(self._generate_html_footer())
+            
+            return "\n".join(html_parts)
+            
+        except Exception as e:
+            self.logger.error(f"Error generating report: {str(e)}")
+            error_template = """
+                <!DOCTYPE html>
+                <html lang="en">
+                <head>
+                    <title>Error Report</title>
+                </head>
+                <body>
+                    <h1>Error in Report Generation</h1>
+                    <p>Please check the input data</p>
+                    <p>Error: {}</p>
+                </body>
+                </html>
+            """.format(str(e))
+            return error_template
+        
+    def display_results_summary(self, normalized_results: list) -> None:
+        """
+        Display summary of test results in the console
+        
+        Args:
+            normalized_results: List of normalized test results
+        """
+        if not normalized_results:
             self.logger.warning("No results found for summary display")
             print("\nNo issues found or error in processing results.")
             return
 
-        error_count = sum(1 for r in results if r.get("level") == 1)
-        warning_count = sum(1 for r in results if r.get("level") == 2)
-        notice_count = sum(1 for r in results if r.get("level") == 3)
+        error_count = sum(1 for r in normalized_results if r.get("level") == 1)
+        warning_count = sum(1 for r in normalized_results if r.get("level") == 2)
+        notice_count = sum(1 for r in normalized_results if r.get("level") == 3)
         
         self.logger.info(f"Summary - Errors: {error_count}, Warnings: {warning_count}, Notices: {notice_count}")
         
@@ -30,415 +123,554 @@ class ReportGenerator:
         print(f"Notices: {notice_count}")
         
         if error_count > 0:
-            print("\nTop Errors:")
-            for result in [r for r in results if r.get("level") == 1][:5]:
+            print("\nTop Critical Issues:")
+            for result in [r for r in normalized_results if r.get("level") == 1][:5]:
                 error_msg = result.get('message', 'Unknown error')
                 print(f"- {error_msg}")
                 self.logger.error(f"Critical issue found: {error_msg}")
 
-        output_path = Path('output').absolute()
-        self.logger.info(f"Results saved to: {output_path}")
-        print(f"\nDetailed results saved to: {output_path}")
-
-    async def save_results(self, url: str, normalized_results: list, crew_results: dict) -> Path:
+    def _get_css_styles(self) -> str:
+        """Load CSS styles from file or return default styles"""
+        try:
+            if self.css_path.exists():
+                with open(self.css_path, 'r', encoding='utf-8') as f:
+                    return f.read()
+            else:
+                self.logger.warning("CSS file not found, using default styles")
+                return self._get_default_css_styles()
+        except Exception as e:
+            self.logger.error(f"Error loading CSS: {e}")
+            return self._get_default_css_styles()
+        
+    def _generate_error_report(self, error_message: str) -> str:
+        """Generate error report HTML"""
+        return f"""
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+            <meta charset="UTF-8">
+            <title>Error - Report Generation Failed</title>
+            <style>
+                body {{ 
+                    font-family: Arial, sans-serif; 
+                    padding: 20px; 
+                    max-width: 800px; 
+                    margin: 0 auto;
+                }}
+                .error-message {{
+                    color: #d32f2f;
+                    padding: 1rem;
+                    border: 1px solid #d32f2f;
+                    border-radius: 4px;
+                    margin: 1rem 0;
+                    background: #fff5f5;
+                }}
+            </style>
+        </head>
+        <body>
+            <h1>Error in Report Generation</h1>
+            <div class="error-message">
+                <h2>An error occurred:</h2>
+                <p>{error_message}</p>
+            </div>
+            <p>Please check the input data and try again.</p>
+            <p>Time: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}</p>
+        </body>
+        </html>
         """
-        Save detailed results and generate reports with WCAG analysis
+
+    def _get_default_css_styles(self) -> str:
+        """Return default CSS styles"""
+        return """
+            body { 
+                font-family: Arial, sans-serif; 
+                line-height: 1.6;
+                max-width: 1200px;
+                margin: 0 auto;
+                padding: 20px;
+            }
+            
+            .error { 
+                color: #d32f2f;
+                padding: 0.5rem;
+                border-left: 4px solid #d32f2f;
+            }
+            
+            .warning { 
+                color: #f57c00;
+                padding: 0.5rem;
+                border-left: 4px solid #f57c00;
+            }
+            
+            .notice { 
+                color: #0288d1;
+                padding: 0.5rem;
+                border-left: 4px solid #0288d1;
+            }
+            
+            .summary {
+                background: #f5f5f5;
+                padding: 1rem;
+                margin: 1rem 0;
+                border-radius: 4px;
+            }
+            
+            .level-a { background: #e8f5e9; }
+            .level-aa { background: #fff3e0; }
+            .level-aaa { background: #e3f2fd; }
+            
+            .issue-details {
+                margin-left: 1rem;
+                padding: 0.5rem;
+                border-left: 3px solid #eee;
+            }
+            
+            .criterion {
+                margin: 1rem 0;
+                padding: 1rem;
+                border: 1px solid #ddd;
+                border-radius: 4px;
+            }
+        """
+
+    async def save_results(self, url: str, normalized_results: list, 
+                         crew_results: Optional[Dict[str, Any]] = None) -> Path:
+        """
+        Save test results and generate reports
         
         Args:
-            url: URL that was tested
+            url: Tested URL
             normalized_results: List of normalized test results
-            crew_results: Results from the crew including WCAG analysis
+            crew_results: Optional AI analysis results
             
         Returns:
             Path to the output directory
         """
         try:
-            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-            base_name = Path(url).name or "local"
-            output_dir = Path("output") / f"test_{base_name}_{timestamp}"
+            # Create timestamp-based directory name
+            timestamp = datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')
+            sanitized_url = self._sanitize_url_for_filename(url)
+            output_dir = self.output_base_path / f"{timestamp}_{sanitized_url}"
+            
+            # Create output directory
             output_dir.mkdir(parents=True, exist_ok=True)
-            
-            self.logger.info(f"Saving results to directory: {output_dir}")
+            self.logger.info(f"Created output directory: {output_dir}")
 
-            # Extract WCAG analysis if available
-            wcag_analysis = crew_results.get("wcag_analysis", {})
-            
             # Save normalized results
-            normalized_file = output_dir / "normalized_results.json"
-            with open(normalized_file, 'w', encoding='utf-8') as f:
-                json.dump(normalized_results, f, indent=2, ensure_ascii=False)
-            self.logger.debug(f"Normalized results saved to: {normalized_file}")
+            await self._save_json_file(
+                output_dir / "normalized_results.json",
+                {
+                    "url": url,
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "results": normalized_results
+                }
+            )
 
-            # Save WCAG analysis separately if available
-            if wcag_analysis:
-                wcag_file = output_dir / "wcag_analysis.json"
-                with open(wcag_file, 'w', encoding='utf-8') as f:
-                    json.dump(wcag_analysis, f, indent=2, ensure_ascii=False)
-                self.logger.debug(f"WCAG analysis saved to: {wcag_file}")
+            # Generate and save HTML report
+            config = {"url": url}
+            report = self.generate_html_report(
+                {"normalized_results": normalized_results},
+                config
+            )
+            await self._save_text_file(output_dir / "report.html", report)
 
-            # Save complete crew analysis
-            crew_file = output_dir / "crew_analysis.json"
-            with open(crew_file, 'w', encoding='utf-8') as f:
-                json.dump(crew_results, f, indent=2, ensure_ascii=False)
-            self.logger.debug(f"Crew analysis saved to: {crew_file}")
-
-            # Generate HTML report with WCAG integration
-            html_content = self.generate_report(url, normalized_results, wcag_analysis)
-            report_file = output_dir / "report.html"
-            with open(report_file, 'w', encoding='utf-8') as f:
-                f.write(html_content)
-            self.logger.info(f"HTML report generated at: {report_file}")
-
-            # Generate WCAG-specific summary file if analysis is available
-            if wcag_analysis and wcag_analysis.get("summary"):
-                summary_file = output_dir / "wcag_summary.json"
-                with open(summary_file, 'w', encoding='utf-8') as f:
-                    json.dump({
-                        "url": url,
-                        "timestamp": datetime.now(timezone.utc).isoformat(),
-                        "wcag_summary": wcag_analysis["summary"],
-                        "coverage": {
-                            "tested_criteria": wcag_analysis["summary"].get("coverage", []),
-                            "total_issues": wcag_analysis["summary"].get("total_issues", 0),
-                            "by_level": wcag_analysis["summary"].get("by_level", {}),
-                            "by_principle": wcag_analysis["summary"].get("by_principle", {})
-                        }
-                    }, f, indent=2, ensure_ascii=False)
-                self.logger.info(f"WCAG summary saved to: {summary_file}")
-            
-            return output_dir
+            # Save AI analysis results if available
+            if crew_results:
+                await self._save_json_file(
+                    output_dir / "crew_analysis.json", 
+                    crew_results
+                )
                 
+                # Generate and save AI-enhanced HTML report
+                ai_report = self.generate_html_report(
+                    {
+                        "normalized_results": normalized_results,
+                        "crew_analysis": crew_results
+                    },
+                    config
+                )
+                await self._save_text_file(output_dir / "ai_report.html", ai_report)
+
+            # Copy CSS file if it exists
+            if self.css_path.exists():
+                shutil.copy2(self.css_path, output_dir / "report_styles.css")
+            
+            self.logger.info(f"Successfully saved all results to {output_dir}")
+            return output_dir
+
         except Exception as e:
-            self.logger.error(f"Error saving results: {e}")
+            error_msg = f"Failed to save results: {str(e)}"
+            self.logger.error(error_msg)
+            
+            # Create error report directory
+            error_dir = self.output_base_path / f"{timestamp}_error"
+            error_dir.mkdir(parents=True, exist_ok=True)
+            
+            # Save error information
+            await self._save_json_file(
+                error_dir / "error_info.json",
+                {
+                    "error": str(e),
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "url": url
+                }
+            )
             raise
 
-    def _generate_html_report(self, output_dir: Path, url: str, 
-                            normalized_results: list, crew_results: dict) -> None:
-        """Generate enhanced HTML report"""
-        html_content = self._generate_html_template(url, normalized_results)
-        
-        # Group issues by type
-        for result in normalized_results:
-            level_class = self._get_level_class(result.get('level', 3))
-            html_content += self._generate_issue_html(result, level_class)
-        
-        html_content += """
-        </body>
-        </html>
-        """
-        
-        report_file = output_dir / "report.html"
-        with open(report_file, 'w', encoding='utf-8') as f:
-            f.write(html_content)
-        self.logger.info(f"HTML report generated at: {report_file}")
+    async def _save_json_file(self, filepath: Path, data: Dict[str, Any]) -> None:
+        """Save data as JSON file"""
+        try:
+            async with aiofiles.open(filepath, 'w', encoding='utf-8') as f:
+                await f.write(json.dumps(data, indent=2, ensure_ascii=False))
+            self.logger.debug(f"Successfully saved JSON file: {filepath}")
+        except Exception as e:
+            self.logger.error(f"Failed to save JSON file {filepath}: {e}")
+            raise
 
-    def _get_level_class(self, level: int) -> str:
-        """Get CSS class for issue level"""
-        return {1: "error", 2: "warning", 3: "notice"}.get(level, "notice")
+    async def _save_text_file(self, filepath: Path, content: str) -> None:
+        """Save text content to file"""
+        try:
+            async with aiofiles.open(filepath, 'w', encoding='utf-8') as f:
+                await f.write(content)
+            self.logger.debug(f"Successfully saved text file: {filepath}")
+        except Exception as e:
+            self.logger.error(f"Failed to save text file {filepath}: {e}")
+            raise
 
-    def _generate_html_template(self, url: str, normalized_results: list, wcag_analysis: dict = None) -> str:
-        """Generate the HTML template with WCAG analysis integration
-        
-        Args:
-            url: Tested URL
-            normalized_results: List of normalized test results
-            wcag_analysis: Dictionary containing WCAG analysis results
-        
-        Returns:
-            HTML template string
-        """
-        # Base template start
-        template = f"""
+    def _sanitize_url_for_filename(self, url: str) -> str:
+        """Convert URL to safe filename string"""
+        # Remove protocol
+        url = url.split('://')[-1]
+        # Replace unsafe characters
+        unsafe_chars = '<>:"/\\|?*'
+        for char in unsafe_chars:
+            url = url.replace(char, '_')
+        # Limit length
+        return url[:50]  # Limit length to prevent too long filenames
+
+    def _get_status_class(self, status: str) -> str:
+        """Determine the CSS class based on status"""
+        status_classes = {
+            "Pass": "success",
+            "Fail": "error",
+            "Not Applicable": "notice"
+        }
+        return status_classes.get(status, "notice")
+
+    def _get_severity_class(self, severity: int) -> str:
+        """Determine the CSS class based on severity"""
+        return self.severity_classes.get(severity, "moderate")
+    
+    def _generate_html_header(self, title: str) -> str:
+        """Generate the HTML header with improved meta tags and styles"""
+        return f"""
         <!DOCTYPE html>
-        <html lang="de">
+        <html lang="en">
         <head>
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>WCAG 2.2 Test Results</title>
+            <meta name="description" content="WCAG 2.2 Accessibility Report">
+            <title>{title}</title>
             <style>
-                body {{ 
-                    font-family: Arial, sans-serif; 
-                    margin: 2rem;
-                    line-height: 1.6;
-                }}
-                .error {{ 
-                    color: #d32f2f;
-                    padding: 0.5rem;
-                    margin: 0.5rem 0;
-                    border-left: 4px solid #d32f2f;
-                }}
-                .warning {{ 
-                    color: #f57c00;
-                    padding: 0.5rem;
-                    margin: 0.5rem 0;
-                    border-left: 4px solid #f57c00;
-                }}
-                .notice {{ 
-                    color: #0288d1;
-                    padding: 0.5rem;
-                    margin: 0.5rem 0;
-                    border-left: 4px solid #0288d1;
-                }}
-                .issue-details {{
-                    margin-left: 1rem;
-                    font-size: 0.9em;
-                    color: #666;
-                }}
-                .summary {{
-                    background: #f5f5f5;
-                    padding: 1rem;
-                    margin: 1rem 0;
-                    border-radius: 4px;
-                }}
-                .wcag-info {{
-                    background: #e3f2fd;
-                    padding: 1rem;
-                    margin: 0.5rem 0;
-                    border-radius: 4px;
-                }}
-                .wcag-links {{
-                    margin-top: 0.5rem;
-                    padding: 0.5rem;
-                    background: #fff;
-                    border-radius: 4px;
-                }}
-                .toc {{
-                    background: #fff;
-                    padding: 1rem;
-                    margin: 1rem 0;
-                    border: 1px solid #ddd;
-                    border-radius: 4px;
-                }}
-                .principle-section {{
-                    margin: 2rem 0;
-                    padding: 1rem;
-                    background: #fff;
-                    border: 1px solid #ddd;
-                    border-radius: 4px;
-                }}
-                .level-tag {{
-                    display: inline-block;
-                    padding: 0.2rem 0.5rem;
-                    border-radius: 3px;
-                    font-size: 0.8em;
-                    font-weight: bold;
-                    margin-left: 0.5rem;
-                }}
-                .level-a {{ background: #e8f5e9; color: #2e7d32; }}
-                .level-aa {{ background: #fff3e0; color: #f57c00; }}
-                .level-aaa {{ background: #e3f2fd; color: #1565c0; }}
+                {self._get_css_styles()}
             </style>
         </head>
         <body>
-            <h1>WCAG 2.2 Test Results</h1>
+            <header>
+                <h1>{title}</h1>
+            </header>
+            <main>
+        """
+
+    def _generate_table_of_contents(self, test_results: Dict[str, Any]) -> str:
+        """Generate an enhanced table of contents with better structure"""
+        toc = [
+            '<nav class="toc" aria-label="Table of Contents">',
+            '<h2>Table of Contents</h2>',
+            '<ul>'
+        ]
+        
+        # Standard sections
+        standard_sections = [
+            ("audit_details", "Audit Details"),
+            ("summary", "Summary"),
+            ("tools_overview", "Testing Tools Overview")
+        ]
+        
+        for section_id, section_name in standard_sections:
+            toc.append(f'<li><a href="#{section_id}">{section_name}</a></li>')
+        
+        # WCAG Principles and Criteria
+        if "results" in test_results:
+            toc.append('<li>WCAG 2.2 Results')
+            toc.append('<ul>')
             
+            principles = test_results.get("results", {})
+            for principle_id, principle_data in principles.items():
+                principle_name = principle_data.get("name", "")
+                total_issues = principle_data.get("total_issues", 0)
+                failed = principle_data.get("failed", 0)
+                
+                toc.append(
+                    f'<li><a href="#principle-{principle_id}">'
+                    f'Principle {principle_id}: {principle_name}'
+                    f'<span class="issue-count">({failed}/{total_issues} issues)</span>'
+                    f'</a></li>'
+                )
+            
+            toc.append('</ul>')
+            toc.append('</li>')
+        
+        toc.extend(['</ul>', '</nav>'])
+        return '\n'.join(toc)
+
+    def _generate_audit_details(self, config: Dict[str, Any]) -> str:
+        """Generate enhanced audit details section"""
+        timestamp = datetime.now(timezone.utc)
+        return f"""
+        <section id="audit_details">
+            <h2>Audit Details</h2>
             <div class="summary">
-                <p>URL: {url}</p>
-                <p>Test durchgeführt: {datetime.now().strftime('%d.%m.%Y %H:%M:%S')}</p>
+                <div class="audit-info">
+                    <h3>Test Information</h3>
+                    <dl>
+                        <dt>URL Tested:</dt>
+                        <dd><a href="{config.get('url', '#')}" target="_blank">{config.get('url', 'N/A')}</a></dd>
+                        
+                        <dt>Test Date:</dt>
+                        <dd>{timestamp.strftime('%Y-%m-%d %H:%M:%S')} UTC</dd>
+                        
+                        <dt>Report Generated:</dt>
+                        <dd>{datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')} UTC</dd>
+                    </dl>
+                </div>
                 
-                <h2>Zusammenfassung</h2>
-                <ul>
-                    <li>Errors: {sum(1 for r in normalized_results if r.get('level') == 1)}</li>
-                    <li>Warnings: {sum(1 for r in normalized_results if r.get('level') == 2)}</li>
-                    <li>Notices: {sum(1 for r in normalized_results if r.get('level') == 3)}</li>
-                </ul>
-        """
-        
-        # Add WCAG Analysis Summary if available
-        if wcag_analysis and wcag_analysis.get('summary'):
-            summary = wcag_analysis['summary']
-            template += """
-                <h3>WCAG Analysis</h3>
-                <div class="wcag-info">
-            """
-            
-            # Add level breakdown
-            if 'by_level' in summary:
-                template += "<h4>Issues by WCAG Level</h4><ul>"
-                for level, count in summary['by_level'].items():
-                    template += f"<li>Level {level}: {count}</li>"
-                template += "</ul>"
-                
-            # Add principle breakdown
-            if 'by_principle' in summary:
-                template += "<h4>Issues by WCAG Principle</h4><ul>"
-                for principle, count in summary['by_principle'].items():
-                    template += f"<li>{principle}: {count}</li>"
-                template += "</ul>"
-                
-            template += "</div>"
-        
-        # Add table of contents
-        template += """
+                <div class="test-scope">
+                    <h3>Test Scope</h3>
+                    <ul>
+                        <li>WCAG Version: 2.2</li>
+                        <li>Conformance Level: AA</li>
+                        <li>Testing Scope: Single Page</li>
+                    </ul>
+                </div>
             </div>
-            
-            <div class="toc">
-                <h2>Inhaltsverzeichnis</h2>
-                <ul>
+        </section>
         """
-        
-        # Generate TOC based on WCAG principles if analysis available
-        if wcag_analysis and wcag_analysis.get('issues'):
-            principles = sorted(set(issue.get('wcag_mapping', {}).get('criterion_id', '').split('.')[0] 
-                                for issue in wcag_analysis['issues'] if issue.get('wcag_mapping')))
-            
-            for principle in principles:
-                template += f'<li><a href="#principle-{principle}">{principle}</a></li>'
-        
-        template += """
-                </ul>
-            </div>
-            
-            <h2>Detaillierte Ergebnisse</h2>
-        """
-        
-        return template
 
-    def _generate_issue_html(self, issue: Dict[str, Any], level_class: str) -> str:
-        """Generate HTML for a single issue with WCAG information
+    def _generate_wcag_summary(self, test_results: Dict[str, Any]) -> str:
+        """Generate enhanced summary section with visual indicators"""
+        summary = test_results.get("summary", {})
+        total_issues = summary.get("total_criteria", 0)
+        failed = summary.get("failed", 0)
+        passed = summary.get("passed", 0)
+        not_applicable = summary.get("not_applicable", 0)
         
-        Args:
-            issue: Dictionary containing issue details
-            level_class: CSS class for issue level
+        compliance_percentage = (passed / total_issues * 100) if total_issues > 0 else 0
         
-        Returns:
-            HTML string for the issue
-        """
-        wcag_mapping = issue.get('wcag_mapping', {})
-        
-        # Start issue container
-        html = f'<div class="{level_class}">'
-        
-        # Add issue header with WCAG level if available
-        html += f'<h3>{issue.get("message", "Unbekanntes Problem")}'
-        if wcag_mapping.get('level'):
-            html += f'<span class="level-tag level-{wcag_mapping["level"].lower()}">'
-            html += f'WCAG {wcag_mapping["level"]}</span>'
-        html += '</h3>'
-        
-        # Add issue details
-        html += '<div class="issue-details">'
-        html += f'<p>Gefunden durch: {", ".join(issue.get("tools", ["unknown"]))}</p>'
-        html += f'<p>Typ: {issue.get("type", "unknown")}</p>'
-        
-        if issue.get('selector'):
-            html += f'<p>Selector: <code>{issue["selector"]}</code></p>'
-        
-        if issue.get('context'):
-            html += f'<p>Kontext: <pre>{issue["context"]}</pre></p>'
-        
-        # Add WCAG specific information if available
-        if wcag_mapping:
-            html += '<div class="wcag-info">'
-            html += f'<h4>WCAG {wcag_mapping.get("criterion_id", "")}: '
-            html += f'{wcag_mapping.get("title", "")}</h4>'
+        html_parts = [
+            '<section id="summary">',
+            '<h2>Summary</h2>',
+            '<div class="summary">',
             
-            if wcag_mapping.get('description'):
-                html += f'<p>{wcag_mapping["description"]}</p>'
+            # Overall Compliance
+            '<div class="compliance-overview">',
+            '<h3>Overall Compliance</h3>',
+            f'<div class="compliance-meter" style="--percentage: {compliance_percentage}%">',
+            f'<span class="percentage">{compliance_percentage:.1f}%</span>',
+            '</div>',
+            '</div>',
             
-            if wcag_mapping.get('special_cases'):
-                html += '<p><strong>Besondere Fälle:</strong></p><ul>'
-                for case in wcag_mapping['special_cases']:
-                    html += f'<li>{case}</li>'
-                html += '</ul>'
-            
-            # Add documentation links
-            docs = wcag_mapping.get('documentation_links', {})
-            if docs:
-                html += '<div class="wcag-links">'
-                html += '<p><strong>Weiterführende Dokumentation:</strong></p><ul>'
-                if docs.get('understanding'):
-                    html += f'<li><a href="{docs["understanding"]}" target="_blank">'
-                    html += 'Understanding WCAG Kriterium</a></li>'
-                if docs.get('how_to_meet'):
-                    html += f'<li><a href="{docs["how_to_meet"]}" target="_blank">'
-                    html += 'How to Meet WCAG Kriterium</a></li>'
-                html += '</ul></div>'
-            
-            html += '</div>'  # Close wcag-info
+            # Detailed Statistics
+            '<div class="detailed-stats">',
+            '<h3>Testing Statistics</h3>',
+            '<dl>',
+            f'<dt>Total Criteria Tested:</dt><dd>{total_issues}</dd>',
+            f'<dt>Passed:</dt><dd class="passed">{passed}</dd>',
+            f'<dt>Failed:</dt><dd class="failed">{failed}</dd>',
+            f'<dt>Not Applicable:</dt><dd class="na">{not_applicable}</dd>',
+            '</dl>',
+            '</div>'
+        ]
         
-        html += '</div></div>'  # Close issue-details and issue container
-        return html
-
-    def _generate_principle_sections(self, wcag_analysis: dict) -> str:
-        """Generate HTML sections for each WCAG principle
-        
-        Args:
-            wcag_analysis: Dictionary containing WCAG analysis results
-        
-        Returns:
-            HTML string containing principle sections
-        """
-        if not wcag_analysis or not wcag_analysis.get('issues'):
-            return ""
+        # WCAG Level Statistics
+        by_level = summary.get("by_level", {})
+        if by_level:
+            html_parts.extend([
+                '<div class="level-statistics">',
+                '<h3>Results by WCAG Level</h3>',
+                '<table>',
+                '<thead><tr><th>Level</th><th>Failed</th><th>Total</th><th>Status</th></tr></thead>',
+                '<tbody>'
+            ])
             
-        # Group issues by principle
-        principles = {}
-        for issue in wcag_analysis['issues']:
-            wcag_mapping = issue.get('wcag_mapping', {})
-            if not wcag_mapping:
-                continue
+            for level, data in by_level.items():
+                status_class = "passed" if data["failed"] == 0 else "failed"
+                html_parts.append(f"""
+                    <tr>
+                        <td>Level {level}</td>
+                        <td>{data["failed"]}</td>
+                        <td>{data["total"]}</td>
+                        <td><span class="status-tag {status_class}">
+                            {status_class.title()}
+                        </span></td>
+                    </tr>
+                """)
                 
-            criterion_id = wcag_mapping.get('criterion_id', '')
-            if not criterion_id:
-                continue
-                
-            principle = criterion_id.split('.')[0]
-            if principle not in principles:
-                principles[principle] = []
-            principles[principle].append(issue)
+            html_parts.extend(['</tbody>', '</table>', '</div>'])
         
-        # Generate sections
-        html = ""
-        for principle in sorted(principles.keys()):
-            html += f'<div id="principle-{principle}" class="principle-section">'
-            html += f'<h2>Principle {principle}</h2>'
-            
-            # Sort issues by criterion ID
-            sorted_issues = sorted(
-                principles[principle],
-                key=lambda x: x.get('wcag_mapping', {}).get('criterion_id', '')
-            )
-            
-            # Add issues
-            for issue in sorted_issues:
-                level = issue.get('level', 3)
-                level_class = self._get_level_class(level)
-                html += self._generate_issue_html(issue, level_class)
-            
-            html += '</div>'  # Close principle section
-        
-        return html
+        html_parts.extend(['</div>', '</section>'])
+        return '\n'.join(html_parts)
 
-    def generate_report(self, url: str, normalized_results: list, wcag_analysis: dict = None) -> str:
-        """Generate complete HTML report with WCAG analysis integration
+    def _generate_wcag_details(self, test_results: Dict[str, Any]) -> str:
+        """Generate enhanced WCAG details section"""
+        html_parts = [
+            '<section id="wcag-details">',
+            '<h2>WCAG 2.2 Test Results</h2>'
+        ]
         
-        Args:
-            url: Tested URL
-            normalized_results: List of normalized test results
-            wcag_analysis: Dictionary containing WCAG analysis results
-        
-        Returns:
-            Complete HTML report as string
-        """
-        # Generate base template
-        html_content = self._generate_html_template(url, normalized_results, wcag_analysis)
-        
-        if wcag_analysis and wcag_analysis.get('issues'):
-            # Generate principle-based sections
-            html_content += self._generate_principle_sections(wcag_analysis)
+        if "results" in test_results:
+            wcag_results = test_results["results"]
+            for principle_id, principle_data in wcag_results.items():
+                html_parts.append(self._generate_principle_section(principle_id, principle_data))
         else:
-            # Fallback to original issue display if no WCAG analysis
-            for result in normalized_results:
-                level_class = self._get_level_class(result.get('level', 3))
-                html_content += self._generate_issue_html(result, level_class)
+            html_parts.append(
+                '<div class="no-results">No WCAG results available for this test.</div>'
+            )
         
-        # Close HTML document
-        html_content += """
+        html_parts.append('</section>')
+        return '\n'.join(html_parts)
+
+    def _generate_principle_section(self, principle_id: str, principle_data: Dict[str, Any]) -> str:
+        """Generate principle section with enhanced organization"""
+        html_parts = [
+            f'<section id="principle-{principle_id}" class="principle-section">',
+            f'<h3>',
+            f'Principle {principle_id}: {principle_data["name"]}',
+            f'<span class="principle-summary">({principle_data["failed"]}/{principle_data["total_issues"]} issues)</span>',
+            f'</h3>'
+        ]
+        
+        if "criteria" in principle_data:
+            # Group criteria by guideline
+            guidelines = {}
+            for criterion_id, criterion_data in principle_data["criteria"].items():
+                guideline_id = '.'.join(criterion_id.split('.')[:2])
+                if guideline_id not in guidelines:
+                    guidelines[guideline_id] = []
+                guidelines[guideline_id].append((criterion_id, criterion_data))
+            
+            # Generate sections for each guideline
+            for guideline_id, criteria in guidelines.items():
+                html_parts.append(f'<div class="guideline" id="guideline-{guideline_id}">')
+                html_parts.append(f'<h4>Guideline {guideline_id}</h4>')
+                
+                for criterion_id, criterion_data in criteria:
+                    if criterion_data["status"] != "Not Applicable":
+                        html_parts.append(
+                            self._generate_criterion_details(criterion_id, criterion_data)
+                        )
+                
+                html_parts.append('</div>')
+        
+        html_parts.append('</section>')
+        return '\n'.join(html_parts)
+
+    def _generate_criterion_details(self, criterion_id: str, criterion_data: Dict[str, Any]) -> str:
+        """Generate criterion details with enhanced organization"""
+        status_class = self._get_status_class(criterion_data["status"])
+        level_class = self.level_styles.get(criterion_data["level"], "")
+        
+        html_parts = [
+            f'<div class="criterion {status_class}" id="criterion-{criterion_id}">',
+            '<div class="criterion-header">',
+            f'<h5>{criterion_id} {criterion_data["title"]}</h5>',
+            '<div class="criterion-tags">',
+            f'<span class="level-tag {level_class}">Level {criterion_data["level"]}</span>',
+            f'<span class="status-tag {status_class}">{criterion_data["status"]}</span>',
+            '</div>',
+            '</div>'
+        ]
+        
+        # Description
+        html_parts.append(
+            f'<div class="criterion-description">{criterion_data["description"]}</div>'
+        )
+        
+        # Issues section
+        if criterion_data["status"] == "Fail" and criterion_data.get("issues"):
+            html_parts.append(self._generate_issues_section(criterion_data["issues"]))
+        
+        html_parts.append('</div>')
+        return '\n'.join(html_parts)
+
+    def _generate_issues_section(self, issues: List[Dict[str, Any]]) -> str:
+        """Generate issues section with severity grouping"""
+        html_parts = ['<div class="issues-section">', '<h6>Issues Found</h6>']
+        
+        # Group issues by severity
+        severity_groups = {1: [], 2: [], 3: [], 4: []}
+        for issue in issues:
+            severity = issue.get("severity", 4)
+            severity_groups[severity].append(issue)
+        
+        # Generate sections for each severity level with issues
+        for severity, severity_issues in severity_groups.items():
+            if severity_issues:
+                severity_class = self.severity_classes.get(severity, "minor")
+                severity_name = {1: "Critical", 2: "Serious", 3: "Moderate", 4: "Minor"}[severity]
+                
+                html_parts.extend([
+                    f'<div class="severity-group {severity_class}">',
+                    f'<h6>{severity_name} Issues ({len(severity_issues)})</h6>',
+                    '<ul>'
+                ])
+                
+                for issue in severity_issues:
+                    html_parts.append(self._generate_issue_entry(issue))
+                
+                html_parts.extend(['</ul>', '</div>'])
+        
+        html_parts.append('</div>')
+        return '\n'.join(html_parts)
+
+    def _generate_issue_entry(self, issue: Dict[str, Any]) -> str:
+        """Generate single issue entry with enhanced details"""
+        html_parts = ['<li class="issue">']
+        
+        # Issue description
+        html_parts.append(f'<div class="issue-description">{issue["description"]}</div>')
+        
+        # Technical details
+        if issue.get("selector") or issue.get("context"):
+            html_parts.append('<div class="issue-details">')
+            if issue.get("selector"):
+                html_parts.append(
+                    f'<div class="selector"><strong>Selector:</strong> <code>{issue["selector"]}</code></div>'
+                )
+            if issue.get("context"):
+                html_parts.append(
+                    f'<div class="context"><strong>Context:</strong> <code>{issue["context"]}</code></div>'
+                )
+            html_parts.append('</div>')
+        
+        # Tools used
+        if issue.get("tools"):
+            tools_str = ", ".join(issue["tools"])
+            html_parts.append(f'<div class="tools-used">Detected by: {tools_str}</div>')
+        
+        html_parts.append('</li>')
+        return '\n'.join(html_parts)
+
+    def _generate_html_footer(self) -> str:
+        """Generate enhanced HTML footer"""
+        return f"""
+            </main>
+            <footer>
+                <div class="footer-content">
+                    <p>Report generated on {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}</p>
+                    <p>Created by WCAG 2.2 Testing Tool</p>
+                </div>
+            </footer>
             </body>
             </html>
         """
-        
-        return html_content
-
-
