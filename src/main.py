@@ -240,7 +240,12 @@ class WCAGTestingCLI:
             # Process results with WCAG mapping
             print("\nPhase 2: WCAG Analysis")
             print("-" * 50)
-            print("Analyzing results against WCAG 2.2 criteria...")
+            print("The WCAG analyzer will now:")
+            print("1. Map detected issues to WCAG 2.2 criteria")
+            print("2. Categorize issues by conformance levels (A, AA, AAA)")
+            print("3. Group findings by WCAG principles")
+            print("4. Generate a detailed compliance summary")
+            print("\nAnalyzing results against WCAG 2.2 criteria...")
             
             wcag_results = await self.wcag_executor.process_results(results)
             if wcag_results.get("error"):

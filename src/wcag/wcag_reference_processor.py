@@ -117,7 +117,7 @@ class WCAGReferenceProcessor:
     async def search_by_description(self, issue_description: str) -> List[Dict[str, Any]]:
         """Search for relevant WCAG criteria based on issue description using RAG."""
         print("\n" + "=" * 80 + "\n")
-        self.logger.info("🔎 SEARCH BY DESCRIPTION")
+        print("🔎 SEARCH BY DESCRIPTION")
         self.logger.info(f"Input:\n  description: '{issue_description}'\n")
 
         try:
