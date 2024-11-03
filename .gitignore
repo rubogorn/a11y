@@ -42,6 +42,10 @@ htmlcov/
 .env
 .venv
 
+# OS specific
+.DS_Store
+**/.DS_Store
+
 # Project specific
 output/
 test-content/
@@ -51,4 +55,3 @@ logs/
 # Node (for pa11y)
 node_modules/
 package-lock.json
-.DS_Store
