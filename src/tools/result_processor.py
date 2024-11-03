@@ -43,19 +43,38 @@ class TestResultProcessor:
         
         Args:
             results: Raw Pa11y results
-            
+                
         Returns:
             List of normalized issues
         """
-        if results.get("status") != "success" or not isinstance(results.get("results"), list):
+        if not isinstance(results.get("results"), dict) and not isinstance(results.get("results"), list):
             self.logger.debug(f"Invalid Pa11y results format: {results.get('status')}")
             return []
-            
+                
         normalized = []
-        for issue in results.get("results", []):
+        raw_issues = []
+        
+        # Handle different possible result structures
+        if isinstance(results.get("results"), dict) and "issues" in results["results"]:
+            raw_issues = results["results"]["issues"]
+        elif isinstance(results.get("results"), list):
+            raw_issues = results["results"]
+        
+        self.logger.debug(f"Processing {len(raw_issues)} Pa11y issues")
+        
+        for issue in raw_issues:
             if not issue:
                 continue
-                
+                    
+            # Map Pa11y error types to our severity levels
+            issue_type = issue.get("type", "").lower()
+            if issue_type == "error":
+                level = 1
+            elif issue_type == "warning":
+                level = 2
+            else:  # notice or unknown
+                level = 3
+                    
             normalized.append({
                 "tool": "pa11y",
                 "type": issue.get("type", "unknown"),
@@ -63,11 +82,12 @@ class TestResultProcessor:
                 "message": issue.get("message", ""),
                 "context": issue.get("context", ""),
                 "selector": issue.get("selector", ""),
-                "level": self.issue_levels.get(issue.get("type", "notice"), 3),
+                "level": level,
                 "wcag_criteria": self._extract_wcag_criteria(issue.get("code", "")),
+                "runner": issue.get("runner", "pa11y"),
                 "timestamp": datetime.now(timezone.utc).isoformat()
             })
-        
+            
         self.logger.info(f"Normalized {len(normalized)} Pa11y results")
         return normalized
 

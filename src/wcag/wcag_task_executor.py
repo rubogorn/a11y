@@ -86,6 +86,10 @@ class WCAGTaskExecutor:
             # First try to find by direct code mapping
             wcag_data = None
             if issue.get("code"):
+                print("=" * 80)
+                print("🔍 First try to find by direct code mapping")
+                print(f"Input:\n  code: '{issue['code']}'\n")
+                print("=" * 80)
                 wcag_data = self.reference_processor.find_criterion_by_code(issue["code"])
                 self.logger.debug(f"Found WCAG mapping by code: {issue['code']}")
             

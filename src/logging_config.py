@@ -22,10 +22,10 @@ class ColorFormatter(logging.Formatter):
     def __init__(self, include_timestamp=True):
         self.include_timestamp = include_timestamp
         if include_timestamp:
-            fmt = '%(asctime)s - %(levelname)s - %(message)s'
+            fmt = '%(asctime)s - %(filename)s - %(levelname)s - %(message)s'
             datefmt = '%Y-%m-%d %H:%M:%S'
         else:
-            fmt = '%(levelname)s: %(message)s'
+            fmt = '%(filename)s - %(levelname)s: %(message)s'
             datefmt = None
         super().__init__(fmt=fmt, datefmt=datefmt)
 
@@ -170,7 +170,7 @@ def get_logger(name: str, log_dir: Optional[str] = None) -> logging.Logger:
     logger.setLevel(logging.INFO)
     
     # Create formatters with different formats for console and file
-    console_formatter = ColorFormatter('%(levelname)s: %(message)s')  # Simplified console output
+    console_formatter = ColorFormatter('%(filename)s - %(levelname)s: %(message)s')  # Simplified console output
     file_formatter = ColorFormatter('%(asctime)s - %(thread)d - %(filename)s-%(funcName)s:%(lineno)d - %(levelname)s: %(message)s')
     
     # Console handler

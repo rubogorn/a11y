@@ -24,7 +24,7 @@ class WCAGTestingCLI:
     def __init__(self):
         # Initialize logger first
         self.logger = get_logger('WCAGTestingCLI', log_dir='output/logs')
-        self.logger.info("Initializing WCAGTestingCLI")
+        self.logger.info("Initializing WCAGTestingCLI hier")
 
         # Initialize paths and core components
         self.test_content_path = Path("test-content")
@@ -89,9 +89,83 @@ class WCAGTestingCLI:
         self.logger.info(f"Local server started at {server_url}")
         return server_url, server
 
+    def _cleanup_logs(self) -> None:
+        """Ask user if they want to clean up all output files and execute if confirmed"""
+        # Define directories to clean
+        cleanup_dirs = {
+            "logs": Path("output/logs"),
+            "results": Path("output/results"),
+            "tool_results": Path("output/tool_results")
+        }
+        
+        # Count files in each directory
+        file_counts = {}
+        total_files = 0
+        
+        for dir_name, dir_path in cleanup_dirs.items():
+            if not dir_path.exists():
+                continue
+            
+            # Count all files (not just .log files)
+            files = list(dir_path.rglob("*"))
+            # Filter out directories from the count
+            files = [f for f in files if f.is_file()]
+            file_counts[dir_name] = files
+            total_files += len(files)
+        
+        if total_files == 0:
+            return
+
+        print("\nOutput Directory Cleanup")
+        print("=======================")
+        print("Found files in:")
+        for dir_name, files in file_counts.items():
+            if files:
+                print(f"- {dir_name}: {len(files)} files")
+        
+        while True:
+            response = input("\nDo you want to delete all output files? (y/n): ").strip().lower()
+            if response == 'y':
+                try:
+                    deleted_count = 0
+                    for dir_name, files in file_counts.items():
+                        for file in files:
+                            try:
+                                file.unlink()
+                                deleted_count += 1
+                            except Exception as e:
+                                self.logger.error(f"Error deleting {file}: {e}")
+                        
+                        # Try to remove empty directories
+                        try:
+                            for dir_path in sorted(cleanup_dirs[dir_name].rglob("*"), reverse=True):
+                                if dir_path.is_dir():
+                                    dir_path.rmdir()
+                        except Exception as e:
+                            self.logger.error(f"Error removing directory {dir_path}: {e}")
+                    
+                    self.logger.info(f"Deleted {deleted_count} files")
+                    print(f"Successfully deleted {deleted_count} files")
+                    
+                    # Recreate necessary directories
+                    for dir_path in cleanup_dirs.values():
+                        dir_path.mkdir(parents=True, exist_ok=True)
+                    
+                except Exception as e:
+                    self.logger.error(f"Error during cleanup: {e}")
+                    print(f"Error during cleanup: {e}")
+                break
+            elif response == 'n':
+                break
+            else:
+                print("Please enter 'y' for yes or 'n' for no.")
+
     def _get_input_choice(self) -> tuple[str, Optional[Path], Optional[HTTPServer]]:
         """Get user input for testing source"""
         server = None
+        
+        # Add cleanup step before showing main menu
+        self._cleanup_logs()
         
         while True:
             print("\nWCAG 2.2 Testing Tool")
@@ -107,7 +181,11 @@ class WCAGTestingCLI:
                 sys.exit(0)
                 
             elif choice == '1':
-                url = input("Enter URL to test: ").strip()
+                url = input("Enter URL to test (press Enter for default): ").strip()
+                # Use default URL if no input provided
+                if not url:
+                    url = "https://shapeofnew.de"
+                    self.logger.info("Using default URL: https://shapeofnew.de")
                 if self._is_valid_url(url):
                     self.logger.info(f"User selected URL: {url}")
                     return url, None, None

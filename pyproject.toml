@@ -33,6 +33,7 @@ aioresponses = "^0.7.4"
 responses = "^0.24.1"
 types-aiofiles = "^23.2.0.0"
 types-requests = "^2.31.0.10"
+ipdb = "^0.13.13"
 
 [build-system]
 requires = ["poetry-core"]
