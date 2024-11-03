@@ -38,7 +38,8 @@ class ColorFormatter(logging.Formatter):
         if not getattr(record, 'simple_message', False) and sys.stderr.isatty():
             color = self.COLORS.get(record.levelname, self.COLORS['RESET'])
             record.levelname = f"{color}{record.levelname}{self.COLORS['RESET']}"
-            if not isinstance(record.msg, str) or not record.msg.startswith(('\033', '\x1b')):
+            # Only apply color to string messages
+            if isinstance(record.msg, str):
                 record.msg = f"{color}{record.msg}{self.COLORS['RESET']}"
 
         # Format the message
@@ -159,50 +160,35 @@ def ui_message(message: str, level: str = "info") -> None:
     logger.handle(record)
 
 def get_logger(name: str, log_dir: Optional[str] = None) -> logging.Logger:
-    """
-    Create a logger with file and console handlers
-    
-    Args:
-        name: Logger name
-        log_dir: Optional directory for log files
-        
-    Returns:
-        Configured logger instance
-    """
     logger = logging.getLogger(name)
-    logger.setLevel(logging.DEBUG)
     
-    # Clear any existing handlers
-    logger.handlers.clear()
+    # Prevent adding handlers if they already exist
+    if logger.handlers:
+        return logger
+        
+    # Set base logging level
+    logger.setLevel(logging.INFO)
     
-    # Create formatters
-    file_formatter = logging.Formatter(
-        '%(asctime)s - %(thread)d - %(filename)s-%(funcName)s:%(lineno)d - %(levelname)s: %(message)s'
-    )
-    console_formatter = logging.Formatter('%(levelname)s: %(message)s')
+    # Create formatters with different formats for console and file
+    console_formatter = ColorFormatter('%(levelname)s: %(message)s')  # Simplified console output
+    file_formatter = ColorFormatter('%(asctime)s - %(thread)d - %(filename)s-%(funcName)s:%(lineno)d - %(levelname)s: %(message)s')
     
     # Console handler
-    console_handler = logging.StreamHandler(sys.stdout)
-    console_handler.setLevel(logging.INFO)
+    console_handler = logging.StreamHandler()
     console_handler.setFormatter(console_formatter)
     logger.addHandler(console_handler)
     
-    # File handler (if log_dir is provided)
+    # File handler (optional)
     if log_dir:
-        log_path = Path(log_dir)
-        try:
-            log_path.mkdir(parents=True, exist_ok=True)
-            
-            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-            log_file = log_path / f"{name}_{timestamp}.log"
-            
-            file_handler = logging.FileHandler(log_file)
-            file_handler.setLevel(logging.DEBUG)
-            file_handler.setFormatter(file_formatter)
-            logger.addHandler(file_handler)
-            
-        except Exception as e:
-            logger.error(f"Failed to set up file logging: {e}")
+        log_dir = Path(log_dir)
+        log_dir.mkdir(parents=True, exist_ok=True)
+        log_file = log_dir / f"{datetime.now().strftime('%Y-%m-%d')}.log"
+        file_handler = logging.FileHandler(log_file)
+        file_handler.setFormatter(file_formatter)
+        logger.addHandler(file_handler)
+    
+    # Prevent propagation to avoid duplicate logs
+    logger.propagate = False
     
     return logger
 
