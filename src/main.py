@@ -12,11 +12,9 @@ from http.server import HTTPServer, SimpleHTTPRequestHandler
 import threading
 import socket
 
-from src.tools.wcag_tools_execution import WCAGTestingTools
 from src.crew import WCAGTestingCrew
 from src.logging_config import get_logger
 from src.report_generator import ReportGenerator
-from src.wcag.wcag_task_executor import WCAGTaskExecutor
 
 class WCAGTestingCLI:
     """Command Line Interface for WCAG Testing"""
@@ -24,7 +22,7 @@ class WCAGTestingCLI:
     def __init__(self):
         # Initialize logger first
         self.logger = get_logger('WCAGTestingCLI', log_dir='output/logs')
-        self.logger.info("Initializing WCAGTestingCLI hier")
+        self.logger.info("Initializing WCAGTestingCLI")
 
         # Initialize paths and core components
         self.test_content_path = Path("test-content")
@@ -36,10 +34,8 @@ class WCAGTestingCLI:
         
         # Initialize components
         try:
-            self.tools = WCAGTestingTools()
             self.crew = WCAGTestingCrew()
             self.report_generator = ReportGenerator()
-            self.wcag_executor = WCAGTaskExecutor()
             self.logger.info("All components initialized successfully")
         except Exception as e:
             self.logger.error(f"Failed to initialize components: {e}")
@@ -90,15 +86,13 @@ class WCAGTestingCLI:
         return server_url, server
 
     def _cleanup_logs(self) -> None:
-        """Ask user if they want to clean up all output files and execute if confirmed"""
-        # Define directories to clean
+        """Ask user if they want to clean up all output files"""
         cleanup_dirs = {
             "logs": Path("output/logs"),
             "results": Path("output/results"),
             "tool_results": Path("output/tool_results")
         }
         
-        # Count files in each directory
         file_counts = {}
         total_files = 0
         
@@ -106,9 +100,7 @@ class WCAGTestingCLI:
             if not dir_path.exists():
                 continue
             
-            # Count all files (not just .log files)
             files = list(dir_path.rglob("*"))
-            # Filter out directories from the count
             files = [f for f in files if f.is_file()]
             file_counts[dir_name] = files
             total_files += len(files)
@@ -136,7 +128,7 @@ class WCAGTestingCLI:
                             except Exception as e:
                                 self.logger.error(f"Error deleting {file}: {e}")
                         
-                        # Try to remove empty directories
+                        # Remove empty directories
                         try:
                             for dir_path in sorted(cleanup_dirs[dir_name].rglob("*"), reverse=True):
                                 if dir_path.is_dir():
@@ -147,7 +139,7 @@ class WCAGTestingCLI:
                     self.logger.info(f"Deleted {deleted_count} files")
                     print(f"Successfully deleted {deleted_count} files")
                     
-                    # Recreate necessary directories
+                    # Recreate directories
                     for dir_path in cleanup_dirs.values():
                         dir_path.mkdir(parents=True, exist_ok=True)
                     
@@ -164,7 +156,6 @@ class WCAGTestingCLI:
         """Get user input for testing source"""
         server = None
         
-        # Add cleanup step before showing main menu
         self._cleanup_logs()
         
         while True:
@@ -182,10 +173,9 @@ class WCAGTestingCLI:
                 
             elif choice == '1':
                 url = input("Enter URL to test (press Enter for default): ").strip()
-                # Use default URL if no input provided
                 if not url:
                     url = "https://shapeofnew.de"
-                    self.logger.info("Using default URL: https://shapeofnew.de")
+                    self.logger.info("Using default URL")
                 if self._is_valid_url(url):
                     self.logger.info(f"User selected URL: {url}")
                     return url, None, None
@@ -222,116 +212,35 @@ class WCAGTestingCLI:
                 print("Invalid choice. Please try again.")
 
     async def run_tests(self, url: str) -> None:
-        """Run all accessibility tests"""
+        """Run accessibility tests"""
         self.logger.info(f"Starting tests for URL: {url}")
         print(f"\nRunning tests for: {url}")
         print("This may take a few minutes...\n")
 
         try:
-            # Run tools analysis
-            self.logger.info("Starting automated testing phase")
-            results = await self.tools.analyze_url(url)
+            # Create test context
+            context = {
+                "url": url,
+                "timestamp": datetime.now().isoformat()
+            }
+
+            # Run crew analysis
+            crew_results = await self.crew.run(context)
             
-            if results.get("error"):
-                self.logger.error(f"Tool analysis failed: {results['error']}")
-                print(f"\nError in tool analysis: {results['error']}")
+            if crew_results.get("error"):
+                self.logger.error(f"Analysis failed: {crew_results['error']}")
+                print(f"\nError in analysis: {crew_results['error']}")
                 return
 
-            # Process results with WCAG mapping
-            print("\nPhase 2: WCAG Analysis")
-            print("-" * 50)
-            print("The WCAG analyzer will now:")
-            print("1. Map detected issues to WCAG 2.2 criteria")
-            print("2. Categorize issues by conformance levels (A, AA, AAA)")
-            print("3. Group findings by WCAG principles")
-            print("4. Generate a detailed compliance summary")
-            print("\nAnalyzing results against WCAG 2.2 criteria...")
+            # Generate and save final report
+            output_dir = await self.report_generator.save_results(
+                url=url,
+                crew_results=crew_results
+            )
             
-            wcag_results = await self.wcag_executor.process_results(results)
-            if wcag_results.get("error"):
-                self.logger.error(f"WCAG analysis failed: {wcag_results['error']}")
-                print(f"\nError in WCAG analysis: {wcag_results['error']}")
-                # Continue with original results if WCAG analysis fails
-            else:
-                # Update results with WCAG mappings
-                results["wcag_analysis"] = wcag_results
-                
-                # Print WCAG analysis summary
-                summary = wcag_results.get("summary", {})
-                print("\nWCAG Analysis Summary:")
-                print(f"Total Issues Mapped: {summary.get('total_issues', 0)}")
-                
-                # Print issues by WCAG level
-                if "by_level" in summary:
-                    print("\nIssues by WCAG Level:")
-                    for level, count in summary["by_level"].items():
-                        print(f"  Level {level}: {count}")
-                
-                # Print issues by WCAG principle
-                if "by_principle" in summary:
-                    print("\nIssues by WCAG Principle:")
-                    for principle, count in summary["by_principle"].items():
-                        print(f"  {principle}: {count}")
+            self.logger.info(f"All results saved to: {output_dir}")
+            print(f"\nResults saved to: {output_dir}")
 
-            # Process normalized results
-            normalized_results = results.get("normalized_results", [])
-            if not normalized_results:
-                self.logger.warning("No accessibility issues found or error in processing results")
-                print("\nNo accessibility issues found or error in processing results.")
-                return
-
-            # Display results summary
-            self.report_generator.display_results_summary(normalized_results)
-
-            print("\nPhase 3: AI Analysis")
-            print("-" * 50)
-            print("The AI agents will now:")
-            print("1. Analyze the collected data")
-            print("2. Generate detailed recommendations")
-            print("3. Create a comprehensive report")
-
-            while True:
-                response = input("\nDo you want to proceed with AI analysis? (y/n): ").strip().lower()
-                if response == 'n':
-                    self.logger.info("User chose to skip AI analysis")
-                    print("\nSaving automated test results only...")
-                    output_dir = await self.report_generator.save_results(url, normalized_results)
-                    self.logger.info(f"Automated results saved to: {output_dir}")
-                    return
-                elif response == 'y':
-                    break
-                else:
-                    print("Please enter 'y' for yes or 'n' for no.")
-
-            try:
-                # Create crew configuration with WCAG results
-                crew_config = {
-                    "url": url,
-                    "raw_results": results,
-                    "normalized_results": normalized_results,
-                    "wcag_analysis": wcag_results if not wcag_results.get("error") else None
-                }
-
-                # Run AI analysis with configuration
-                self.logger.info("Starting AI analysis phase")
-                crew_results = await self.crew.run(crew_config)
-
-                # Save results with AI analysis
-                output_dir = await self.report_generator.save_results(
-                    url, 
-                    normalized_results,
-                    crew_results
-                )
-                self.logger.info(f"All results saved to: {output_dir}")
-                print(f"\nResults saved to: {output_dir}")
-                
-            except Exception as e:
-                self.logger.error(f"AI analysis failed: {str(e)}")
-                print(f"\nError in AI analysis: {str(e)}")
-                # Still save the tool results even if AI analysis fails
-                output_dir = await self.report_generator.save_results(url, normalized_results)
-                self.logger.info(f"Automated results saved to: {output_dir}")
-                    
         except Exception as e:
             self.logger.error(f"Test execution failed: {str(e)}")
             print(f"\nError running tests: {str(e)}")
@@ -345,7 +254,6 @@ class WCAGTestingCLI:
             try:
                 await self.run_tests(url)
             finally:
-                # Clean up server if it was created
                 if server:
                     server.shutdown()
                     server.server_close()

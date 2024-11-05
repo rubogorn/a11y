@@ -1,38 +1,17 @@
+# Initialisierung und Vorbereitung
 init_testing:
   description: >
-    Initialize the WCAG 2.2 testing process for {url}.
+    Initialize WCAG 2.2 testing process for {url}.
     
     Tasks:
-    1. Define test scope and requirements
-    2. Identify available testing tools
-    3. Create testing schedule
-    4. Set up test environment
-    
-    IMPORTANT: Only plan for implemented and available tests.
-    Do not include unavailable or unimplemented test tools.
+    1. Define test scope and objectives
+    2. Create testing framework
+    3. Prepare analysis environment
+    4. Set up reporting structure
   expected_output: >
-    JSON testing plan with defined scope and requirements,
-    listing only available and implemented tests.
+    JSON configuration defining test scope, framework,
+    and analysis requirements.
   agent: compliance_controller
-
-validate_checkpoints:
-  description: >
-    Review WCAG 2.2 checkpoints for {url} and create testing tasks.
-    
-    Tasks:
-    1. Review available testing tools
-    2. Map test coverage to WCAG guidelines
-    3. Identify testing gaps
-    4. Create test execution plan
-    
-    IMPORTANT: Only consider implemented and functional tests.
-    Clearly mark untested guidelines as "not covered".
-  expected_output: >
-    List of required tests mapped to WCAG guidelines,
-    clearly indicating which guidelines can be tested.
-  agent: wcag_checkpoints
-  context:
-    - init_testing
 
 verify_tool_availability:
   description: >
@@ -41,61 +20,10 @@ verify_tool_availability:
   expected_output: >
     JSON list of available and unavailable tools.
   agent: compliance_controller
-
-analyze_wcag_results:
-  description: >
-    Analyze accessibility test results for {url} and map them to WCAG 2.2 guidelines.
-    
-    Tasks:
-    1. Process raw test results using WCAGReferenceProcessor:
-       - Direct code mapping using find_criterion_by_code
-       - RAG-based search using search_by_description
-       - Detailed criteria lookup using get_criterion_details
-    2. Map each issue to specific WCAG criteria with:
-       - Criterion ID
-       - Title
-       - Level (A, AA, AAA)
-       - Documentation links
-    3. Extract relevant descriptions and documentation:
-       - Understanding guidelines
-       - How to meet links
-       - Special cases
-    4. Generate detailed recommendations based on mapped criteria
-    
-    IMPORTANT: Use the wcag.json reference data for accurate mapping
-    and complete documentation.
-  expected_output: >
-    JSON report with detailed WCAG mappings including:
-    - Criterion details (ID, title, level)
-    - Full descriptions
-    - Documentation links
-    - Special cases
-    - Implementation recommendations
-  agent: wcag_checkpoints
   context:
-    - validate_checkpoints
-  output_format: json
+    - init_testing
 
-analyze_static_content:
-  description: >
-    Analyze HTML structure and static content of {url}.
-    
-    Check for:
-    - Alternative text for images
-    - Proper heading hierarchy
-    - ARIA roles and landmarks
-    - Document structure
-    - Form accessibility
-    
-    IMPORTANT: Only report on completed analysis results.
-    Do not make assumptions about unanalyzed elements.
-  expected_output: >
-    JSON report of actual static analysis findings,
-    including only detected issues.
-  agent: accessibility_analyzer
-  context:
-    - validate_checkpoints
-
+# Technische Tests
 run_pa11y_tests:
   description: >
     Execute and analyze Pa11y tests for {url}.
@@ -112,7 +40,7 @@ run_pa11y_tests:
     JSON report containing only actual Pa11y findings.
   agent: pa11y_analyzer
   context:
-    - validate_checkpoints
+    - verify_tool_availability
 
 run_axe_tests:
   description: >
@@ -130,7 +58,7 @@ run_axe_tests:
     JSON report of Axe Core results or implementation status.
   agent: axe_analyzer
   context:
-    - validate_checkpoints
+    - verify_tool_availability
 
 run_lighthouse_tests:
   description: >
@@ -148,77 +76,173 @@ run_lighthouse_tests:
     JSON report of Lighthouse results or implementation status.
   agent: lighthouse_analyzer
   context:
-    - validate_checkpoints
+    - verify_tool_availability
 
-consolidate_results:
+# Struktur- und Inhaltsanalyse
+analyze_wcag_structure:
   description: >
-    Merge and analyze all available test results for {url}.
-    
-    Process:
-    1. Check which tests were completed successfully
-    2. Merge results only from completed tests
-    3. Remove duplicate findings
-    4. Use WCAGReferenceProcessor to validate and enrich all mappings
-    5. Categorize by severity and WCAG level
-    6. Generate statistics
-    
-    IMPORTANT: Only include results from completed tests.
-    Clearly indicate which tests were not performed.
+    Analyze accessibility structure and provide WCAG 2.2 mappings for {url}.
+
+    Required Analysis:
+    1. Document Structure:
+       - Semantic HTML usage
+       - Heading hierarchy
+       - Landmark regions
+       - ARIA implementation
+
+    2. Content Relationships:
+       - Information hierarchy
+       - Content grouping
+       - Related elements
+       - Context associations
+
+    3. Interactive Elements:
+       - Form controls
+       - Navigation mechanisms
+       - Custom widgets
+       - Focus management
+
+    4. Technical Implementation:
+       - HTML validation
+       - ARIA patterns
+       - Event handling
+       - State management
+
+    IMPORTANT: Provide detailed technical analysis with
+    specific WCAG 2.2 criterion references.
   expected_output: >
-    Consolidated JSON report of actual findings only with the structure:
-    - test_name: Name of the tool (e.g., Pa11y, Axe, etc.)
-    - issue_type: Type of issue found
-    - severity: Severity level
-    - solution_recommendation: Recommended solution
-  agent: consolidation_agent
+    Structured JSON report containing:
+    - Technical findings
+    - WCAG mappings
+    - Implementation details
+    - Severity assessments
+  agent: accessibility_analyzer
   context:
-    - analyze_static_content
     - run_pa11y_tests
     - run_axe_tests
     - run_lighthouse_tests
 
-create_remediation_plan:
+# WCAG Mapping und Analyse
+map_wcag_criteria:
   description: >
-    Create remediation guidance for actual findings from {url}.
-    
-    Include for each real issue:
-    1. Specific solution steps
-    2. Code examples
-    3. Implementation guidelines
-    4. Best practices
-    
-    IMPORTANT: Only address actually detected issues.
-    Do not create solutions for hypothetical problems.
+    Map identified issues to specific WCAG 2.2 criteria for {url}.
+
+    Required Mapping:
+    1. Criterion Identification:
+       - Specific WCAG 2.2 references
+       - Conformance levels
+       - Related techniques
+       - Applicable failures
+
+    2. Impact Analysis:
+       - Severity assessment
+       - User impact
+       - Scope of issue
+       - Technical complexity
+
+    3. Documentation:
+       - Clear rationale
+       - Supporting evidence
+       - Related guidelines
+       - Testing notes
+
+    4. Context Integration:
+       - Relationship to other issues
+       - Implementation considerations
+       - Testing implications
+       - Validation requirements
+
+    IMPORTANT: Ensure comprehensive coverage of all
+    relevant WCAG 2.2 success criteria.
   expected_output: >
-    JSON remediation plan addressing only real findings.
+    Detailed JSON mapping containing:
+    - WCAG criterion references
+    - Impact assessments
+    - Technical details
+    - Documentation links
+  agent: wcag_checkpoints
+  context:
+    - analyze_wcag_structure
+
+# Lösungsentwicklung und Validierung
+develop_remediation:
+  description: >
+    Create detailed remediation guidance for identified issues in {url}.
+
+    Required Components:
+    1. Technical Solutions:
+       - Step-by-step fixes
+       - Code examples
+       - Implementation guidance
+       - Testing procedures
+
+    2. Best Practices:
+       - Recommended approaches
+       - Alternative solutions
+       - Prevention strategies
+       - Maintenance guidance
+
+    3. Testing Guidelines:
+       - Validation steps
+       - Test scenarios
+       - Expected outcomes
+       - Success criteria
+
+    4. Documentation:
+       - Clear instructions
+       - Technical requirements
+       - Resource references
+       - Support information
+
+    IMPORTANT: Provide practical, implementable solutions
+    with clear validation steps.
+  expected_output: >
+    Comprehensive JSON remediation guide with:
+    - Detailed solutions
+    - Implementation steps
+    - Testing procedures
+    - Documentation
   agent: remediation_specialist
   context:
-    - consolidate_results
+    - map_wcag_criteria
 
 validate_results:
   description: >
-    Validate all test results and remediation plans for {url}.
-    
-    Review:
-    1. Test completion status
-    2. Finding accuracy
-    3. Solution appropriateness
-    4. Documentation completeness
-    
-    IMPORTANT: Only validate actual results and findings.
-    Reject any fictional or assumed data.
+    Review and validate all analysis results and remediation plans for {url}.
+
+    Validation Requirements:
+    1. Completeness Check:
+       - Test coverage
+       - WCAG mapping accuracy
+       - Solution completeness
+       - Documentation quality
+
+    2. Quality Assurance:
+       - Technical accuracy
+       - Implementation viability
+       - Testing thoroughness
+       - Documentation clarity
+
+    3. Standards Compliance:
+       - WCAG 2.2 alignment
+       - Best practices adherence
+       - Testing methodology
+       - Documentation standards
+
+    4. Final Review:
+       - Overall assessment
+       - Gap analysis
+       - Quality metrics
+       - Improvement recommendations
+
+    IMPORTANT: Ensure comprehensive validation of all
+    aspects of the accessibility analysis.
   expected_output: >
-    Final JSON validation report for actual findings only.
+    Final validation report containing:
+    - Quality assessment
+    - Coverage analysis
+    - Improvement recommendations
+    - Sign-off status
   agent: compliance_controller
   context:
-    - create_remediation_plan
-
-validate_wcag_mappings:
-  description: >
-    Validate all WCAG mappings using WCAGReferenceProcessor:
-    1. Verify direct code mappings
-    2. Validate RAG search results
-    3. Check completeness of criterion details
-  expected_output: >
-    Validation report of WCAG mappings
-  agent: compliance_controller
+    - develop_remediation
