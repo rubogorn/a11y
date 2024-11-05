@@ -1,13 +1,22 @@
-"""WCAG Analysis and Testing Module"""
+# src/wcag/__init__.py
+
+from .unified_result_processor import (
+    UnifiedResultProcessor,
+    AccessibilityIssue,
+    WCAGReference,
+    WCAGLevel,
+    IssueSeverity
+)
 
 from .wcag_analysis import (
     WCAGIssue,
     WCAGPrinciple,
-    WCAGAnalysisResult,
     WCAGReportGenerator,
     WCAGComplianceTracker
 )
 
+from .wcag_mapping_agent import WCAGMappingAgent
+from .wcag_integration_manager import WCAGIntegrationManager
 from .wcag_analyzers import (
     HTMLAnalyzer,
     Pa11yAnalyzer,
@@ -16,14 +25,17 @@ from .wcag_analyzers import (
 )
 
 __all__ = [
-    # Classes from wcag_analysis
+    'UnifiedResultProcessor',
+    'AccessibilityIssue',
+    'WCAGReference',
+    'WCAGLevel',
+    'IssueSeverity',
     'WCAGIssue',
     'WCAGPrinciple',
-    'WCAGAnalysisResult',
     'WCAGReportGenerator',
     'WCAGComplianceTracker',
-    
-    # Classes from wcag_analyzers
+    'WCAGMappingAgent',
+    'WCAGIntegrationManager',
     'HTMLAnalyzer',
     'Pa11yAnalyzer',
     'AxeAnalyzer',

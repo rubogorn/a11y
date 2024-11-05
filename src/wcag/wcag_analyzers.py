@@ -1,12 +1,17 @@
-from typing import Dict, Any, List, Optional
+# src/wcag/wcag_analyzers.py
+
+import asyncio
+import json
+from datetime import datetime, timezone
 from pathlib import Path
 import logging
 from bs4 import BeautifulSoup
 import aiohttp
-from datetime import datetime, timezone
-import json
-import asyncio
-from .wcag_analysis import WCAGIssue, WCAGAnalysisResult
+from typing import Dict, Any, List, Optional
+from playwright.async_api import Page, Browser, async_playwright
+from abc import ABC, abstractmethod
+from .unified_result_processor import UnifiedResultProcessor
+from .wcag_analysis import WCAGIssue
 
 class BaseAnalyzer:
     """Basisklasse für alle WCAG Analyzer"""

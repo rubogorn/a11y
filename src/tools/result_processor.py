@@ -3,29 +3,6 @@ from typing import Dict, Any, List, Union
 import re
 from datetime import datetime, timezone
 
-class StandardizedResult:
-    def __init__(self):
-        self.status = None
-        self.message = None
-        self.issues = []
-        self.summary = {}
-        self.timestamp = None
-        
-    def to_dict(self):
-        return {
-            "status": self.status,
-            "message": self.message, 
-            "issues": self.issues,
-            "summary": self.summary,
-            "timestamp": self.timestamp
-        }
-        
-    @classmethod
-    def from_raw_results(cls, results):
-        std_result = cls()
-        # Convert raw results to standardized format
-        return std_result
-
 class TestResultProcessor:
     """Process and normalize results from different testing tools"""
     

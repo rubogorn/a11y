@@ -1,4 +1,6 @@
-from typing import Dict, Any, List, Optional
+# src/wcag/wcag_analysis.py
+
+from typing import Dict, List, Any, Optional
 from dataclasses import dataclass
 from datetime import datetime, timezone
 import json
@@ -23,77 +25,20 @@ class WCAGPrinciple(Enum):
     UNDERSTANDABLE = "3"
     ROBUST = "4"
 
-class WCAGAnalysisResult:
-    """
-    Strukturierte Analyse von WCAG-Problemen mit detaillierten Berichten
-    und Empfehlungen
-    """
-
-    def __init__(self, url: str):
-        self.url = url
-        self.timestamp = datetime.now(timezone.utc).isoformat()
-        self.issues: List[WCAGIssue] = []
-        self.summary: Dict[str, Any] = {
-            "total_issues": 0,
-            "by_level": {"A": 0, "AA": 0, "AAA": 0},
-            "by_principle": {},
-            "by_severity": {1: 0, 2: 0, 3: 0, 4: 0}
-        }
-        self.recommendations: Dict[str, List[str]] = {}
-
-    def add_issue(self, issue: WCAGIssue) -> None:
-        """Fügt ein neues Problem hinzu und aktualisiert die Zusammenfassung"""
-        self.issues.append(issue)
-        self.summary["total_issues"] += 1
-        self.summary["by_level"][issue.level] += 1
-        self.summary["by_severity"][issue.severity] += 1
-        
-        # Gruppierung nach Prinzipien
-        principle = issue.criterion_id.split(".")[0]
-        if principle not in self.summary["by_principle"]:
-            self.summary["by_principle"][principle] = {
-                "count": 0,
-                "issues": []
-            }
-        self.summary["by_principle"][principle]["count"] += 1
-        self.summary["by_principle"][principle]["issues"].append(issue.criterion_id)
-
-    def add_recommendation(self, criterion_id: str, steps: List[str]) -> None:
-        """Fügt Empfehlungen für ein bestimmtes Kriterium hinzu"""
-        if criterion_id not in self.recommendations:
-            self.recommendations[criterion_id] = []
-        self.recommendations[criterion_id].extend(steps)
-
-    def to_dict(self) -> Dict[str, Any]:
-        """Konvertiert das Analyseergebnis in ein Dictionary"""
-        return {
-            "url": self.url,
-            "timestamp": self.timestamp,
-            "summary": self.summary,
-            "issues": [
-                {
-                    "description": issue.description,
-                    "criterion_id": issue.criterion_id,
-                    "level": issue.level,
-                    "severity": issue.severity,
-                    "tools": issue.tools,
-                    "context": issue.context,
-                    "selector": issue.selector,
-                    "remediation_steps": issue.remediation_steps
-                }
-                for issue in self.issues
-            ],
-            "recommendations": self.recommendations
-        }
-
 class WCAGReportGenerator:
     """
     Generiert detaillierte WCAG-Konformitätsberichte basierend auf 
     den Analyseergebnissen
     """
 
-    def __init__(self, analysis_result: WCAGAnalysisResult):
-        self.analysis = analysis_result
+    def __init__(self, analysis_results: Dict[str, Any]):
+        """
+        Initialisiert den Report Generator
+        
+        Args:
+            analysis_results: Ergebnisse der WCAG-Analyse
+        """
+        self.analysis = analysis_results
         self._init_templates()
 
     def _init_templates(self) -> None:
@@ -121,79 +66,75 @@ class WCAGReportGenerator:
         """Generiert einen Zusammenfassungsbericht"""
         return {
             "overview": {
-                "url": self.analysis.url,
-                "scan_date": self.analysis.timestamp,
-                "total_issues": self.analysis.summary["total_issues"]
+                "url": self.analysis.get("url"),
+                "scan_date": self.analysis.get("timestamp"),
+                "total_issues": len(self.analysis.get("issues", []))
             },
-            "compliance_levels": {
-                level: count 
-                for level, count in self.analysis.summary["by_level"].items()
-            },
-            "severity_breakdown": {
-                f"level_{level}": count
-                for level, count in self.analysis.summary["by_severity"].items()
-            },
-            "principles_affected": {
-                principle: details
-                for principle, details in self.analysis.summary["by_principle"].items()
-            }
+            "compliance_levels": self.analysis.get("summary", {}).get("by_level", {}),
+            "severity_breakdown": self.analysis.get("summary", {}).get("by_severity", {}),
+            "principles_affected": self.analysis.get("summary", {}).get("by_principle", {})
         }
 
     def generate_detailed_report(self) -> Dict[str, Any]:
         """Generiert einen detaillierten Bericht mit allen Problemen"""
+        issues = self.analysis.get("issues", [])
+        
         return {
             "metadata": {
-                "url": self.analysis.url,
-                "timestamp": self.analysis.timestamp,
-                "total_issues": len(self.analysis.issues)
+                "url": self.analysis.get("url"),
+                "timestamp": self.analysis.get("timestamp"),
+                "total_issues": len(issues)
             },
             "issues": [
                 {
                     "description": self._format_issue_description(issue),
                     "recommendation": self._format_recommendation(issue),
                     "details": {
-                        "criterion": issue.criterion_id,
-                        "level": issue.level,
-                        "severity": issue.severity,
-                        "tools": issue.tools,
+                        "criterion": issue.get("wcag_references", [{}])[0].get("criterion_id"),
+                        "level": issue.get("wcag_references", [{}])[0].get("level"),
+                        "severity": issue.get("severity"),
+                        "tools": issue.get("tools", []),
                         "technical": {
-                            "context": issue.context,
-                            "selector": issue.selector
+                            "context": issue.get("context"),
+                            "selector": issue.get("selector")
                         }
                     }
                 }
-                for issue in self.analysis.issues
+                for issue in issues
             ],
-            "recommendations_summary": self.analysis.recommendations,
+            "recommendations_summary": self.analysis.get("remediation_guidance", {}),
             "statistics": self.generate_summary_report()
         }
 
-    def _format_issue_description(self, issue: WCAGIssue) -> str:
+    def _format_issue_description(self, issue: Dict[str, Any]) -> str:
         """Formatiert die Problembeschreibung"""
+        wcag_ref = issue.get("wcag_references", [{}])[0]
         return self.templates["issue_description"].format(
-            criterion_id=issue.criterion_id,
-            level=issue.level,
-            description=issue.description,
-            severity=issue.severity,
-            tools=", ".join(issue.tools),
-            context=issue.context or "N/A",
-            selector=issue.selector or "N/A"
+            criterion_id=wcag_ref.get("criterion_id", "unknown"),
+            level=wcag_ref.get("level", "unknown"),
+            description=issue.get("description", ""),
+            severity=issue.get("severity", 3),
+            tools=", ".join(issue.get("tools", [])),
+            context=issue.get("context", "N/A"),
+            selector=issue.get("selector", "N/A")
         )
 
-    def _format_recommendation(self, issue: WCAGIssue) -> str:
+    def _format_recommendation(self, issue: Dict[str, Any]) -> str:
         """Formatiert die Empfehlungen"""
-        if not issue.remediation_steps:
+        steps = issue.get("remediation_steps", [])
+        if not steps:
             return "No specific remediation steps provided."
             
+        wcag_ref = issue.get("wcag_references", [{}])[0]
         steps_text = "\n".join(
             f"  {i+1}. {step}" 
-            for i, step in enumerate(issue.remediation_steps)
+            for i, step in enumerate(steps)
         )
         
         return self.templates["recommendation"].format(
             steps=steps_text,
-            criterion_id=issue.criterion_id,
-            level=issue.level
+            criterion_id=wcag_ref.get("criterion_id", "unknown"),
+            level=wcag_ref.get("level", "unknown")
         )
 
 class WCAGComplianceTracker:
@@ -205,16 +146,26 @@ class WCAGComplianceTracker:
     def __init__(self):
         self.history: List[Dict[str, Any]] = []
         
-    def add_result(self, result: WCAGAnalysisResult) -> None:
-        """Fügt ein neues Testergebnis zur Historie hinzu"""
+    def add_result(self, result: Dict[str, Any]) -> None:
+        """
+        Fügt ein neues Testergebnis zur Historie hinzu
+        
+        Args:
+            result: Analyseergebnis
+        """
         self.history.append({
-            "timestamp": result.timestamp,
-            "url": result.url,
-            "summary": result.summary.copy()
+            "timestamp": result.get("timestamp", datetime.now(timezone.utc).isoformat()),
+            "url": result.get("url"),
+            "summary": result.get("summary", {})
         })
         
     def get_trend_analysis(self) -> Dict[str, Any]:
-        """Analysiert Trends in der WCAG-Konformität"""
+        """
+        Analysiert Trends in der WCAG-Konformität
+        
+        Returns:
+            Trend-Analyse der WCAG-Konformität
+        """
         if len(self.history) < 2:
             return {"status": "insufficient_data"}
             
@@ -238,20 +189,20 @@ class WCAGComplianceTracker:
             },
             "changes": {
                 "total_issues": calculate_change(
-                    latest["summary"]["total_issues"],
-                    previous["summary"]["total_issues"]
+                    latest["summary"].get("total_issues", 0),
+                    previous["summary"].get("total_issues", 0)
                 ),
                 "by_level": {
                     level: calculate_change(
-                        latest["summary"]["by_level"][level],
-                        previous["summary"]["by_level"][level]
+                        latest["summary"].get("by_level", {}).get(level, 0),
+                        previous["summary"].get("by_level", {}).get(level, 0)
                     )
                     for level in ["A", "AA", "AAA"]
                 },
                 "by_severity": {
                     severity: calculate_change(
-                        latest["summary"]["by_severity"][severity],
-                        previous["summary"]["by_severity"][severity]
+                        latest["summary"].get("by_severity", {}).get(str(severity), 0),
+                        previous["summary"].get("by_severity", {}).get(str(severity), 0)
                     )
                     for severity in range(1, 5)
                 }

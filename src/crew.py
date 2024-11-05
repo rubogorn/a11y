@@ -1,3 +1,5 @@
+# src/crew.py
+
 from typing import TypedDict, List, Optional, Dict, Any
 from crewai import Agent, Task, Crew, Process
 from pathlib import Path
@@ -5,7 +7,7 @@ import json
 import asyncio
 from datetime import datetime, timezone
 
-from .tools.result_processor import StandardizedResult
+from .wcag.unified_result_processor import UnifiedResultProcessor
 from .logging_config import get_logger
 from .wcag.wcag_mapping_agent import WCAGMappingAgent
 from .wcag.wcag_analyzers import (

@@ -1,69 +1,39 @@
+# src/wcag/wcag_mapping_agent.py
+
 from typing import Dict, List, Any, Optional
-from dataclasses import dataclass
-from datetime import datetime
-from enum import Enum
-from crewai import Agent, Crew, Process, Task
+from datetime import datetime, timezone
+import logging
+from crewai import Agent, Task, Crew, Process
 from src.logging_config import get_logger
-
-class WCAGLevel(Enum):
-    A = "A"
-    AA = "AA"
-    AAA = "AAA"
-
-@dataclass
-class WCAGCriterion:
-    """Repräsentiert ein WCAG-Erfolgskriterium"""
-    id: str
-    level: WCAGLevel
-    description: str
-    url: str
-    techniques: List[str]
-    failures: List[str]
+from .unified_result_processor import (
+    UnifiedResultProcessor,
+    AccessibilityIssue,
+    WCAGReference,
+    WCAGLevel,
+    IssueSeverity
+)
 
 class WCAGMappingAgent:
     """
-    Spezialisierter Agent für WCAG 2.2 Mapping und Analyse.
-    Ersetzt die frühere JSON-basierte Implementation.
+    WCAG 2.2 Mapping durch den wcag_checkpoints Agenten.
+    Ersetzt die JSON-basierte Implementierung durch Agenten-Intelligenz.
     """
 
     def __init__(self):
-        """Initialisiert den WCAG Mapping Agent"""
+        """Initialisiert den WCAGMappingAgent"""
         self.logger = get_logger('WCAGMappingAgent')
         
         # Agent initialisieren
         self.agent = Agent(
             role="WCAG 2.2 Criteria Mapping Specialist",
-            goal="Map accessibility issues to WCAG 2.2 criteria and provide detailed analysis",
-            backstory="""You are an expert in WCAG 2.2 guidelines with comprehensive knowledge of:
-            1. All WCAG 2.2 Principles:
-               - Perceivable (1.x)
-               - Operable (2.x)
-               - Understandable (3.x)
-               - Robust (4.x)
-               
-            2. All Success Criteria:
-               - Level A requirements
-               - Level AA requirements
-               - Level AAA requirements
-               
-            3. Implementation Techniques:
-               - Sufficient techniques
-               - Advisory techniques
-               - Common failures
-               
-            4. Testing and Validation:
-               - Testing procedures
-               - Success metrics
-               - Failure conditions""",
+            goal="Map accessibility issues to WCAG 2.2 criteria and provide detailed guidance",
+            backstory="""You are an expert in WCAG 2.2 guidelines who specializes in analyzing 
+            test results and mapping them to specific WCAG criteria. You provide structured data 
+            for report generation including criteria details, recommendations, and severity assessments.
+            You have complete knowledge of all WCAG 2.2 success criteria, techniques, and failures.""",
+            allow_delegation=False,
             verbose=True
         )
-        
-        # Analysekonfiguration
-        self.analysis_config = {
-            "min_confidence": 0.8,
-            "detailed_analysis": True,
-            "include_techniques": True
-        }
 
     async def analyze_accessibility_issue(self, issue: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -94,15 +64,22 @@ class WCAGMappingAgent:
                 
                 Format the response as structured data suitable for report generation.
                 """,
-                agent=self.agent,
-                expected_output="Detailed WCAG 2.2 mapping analysis in JSON format"
+                agent=self.agent
             )
-            
+
+            # Temporäre Crew für die Analyse erstellen
+            analysis_crew = Crew(
+                agents=[self.agent],
+                tasks=[analysis_task],
+                process=Process.sequential,
+                verbose=True
+            )
+
             # Analyse durchführen
-            result = await analysis_task.execute()
+            result = await analysis_crew.kickoff()
             
-            # Ergebnis verarbeiten und validieren
-            processed_result = self._process_analysis_result(result, issue)
+            # Ergebnis verarbeiten
+            processed_result = await self._process_analysis_result(result, issue)
             
             return processed_result
             
@@ -110,182 +87,191 @@ class WCAGMappingAgent:
             self.logger.error(f"Error analyzing accessibility issue: {str(e)}")
             return self._create_error_result(issue, str(e))
 
-    async def batch_analyze_issues(self, issues: List[Dict[str, Any]]) -> Dict[str, Any]:
+    async def _process_analysis_result(self, 
+                                     result: Dict[str, Any], 
+                                     original_issue: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Analysiert mehrere Accessibility-Probleme im Batch
+        Verarbeitet die Antwort des WCAG-Agenten
         
         Args:
-            issues: Liste von Accessibility-Problemen
-            
-        Returns:
-            Gesammelte WCAG-Mappings und Analysen
-        """
-        try:
-            batch_results = {
-                "mappings": [],
-                "summary": {
-                    "total_issues": len(issues),
-                    "mapped_issues": 0,
-                    "by_level": {
-                        "A": 0,
-                        "AA": 0,
-                        "AAA": 0
-                    },
-                    "by_principle": {}
-                },
-                "timestamp": datetime.utcnow().isoformat()
-            }
-            
-            # Alle Issues analysieren
-            for issue in issues:
-                mapping = await self.analyze_accessibility_issue(issue)
-                batch_results["mappings"].append(mapping)
-                
-                # Summary aktualisieren
-                if "wcag_criterion" in mapping:
-                    batch_results["summary"]["mapped_issues"] += 1
-                    level = mapping["wcag_criterion"].get("level", "A")
-                    batch_results["summary"]["by_level"][level] += 1
-                    
-                    # Nach Prinzip gruppieren
-                    principle = mapping["wcag_criterion"]["id"].split(".")[0]
-                    if principle not in batch_results["summary"]["by_principle"]:
-                        batch_results["summary"]["by_principle"][principle] = {
-                            "count": 0,
-                            "issues": []
-                        }
-                    batch_results["summary"]["by_principle"][principle]["count"] += 1
-                    batch_results["summary"]["by_principle"][principle]["issues"].append(
-                        mapping["wcag_criterion"]["id"]
-                    )
-            
-            return batch_results
-            
-        except Exception as e:
-            self.logger.error(f"Error in batch analysis: {str(e)}")
-            return {
-                "error": str(e),
-                "timestamp": datetime.utcnow().isoformat()
-            }
-
-    def _process_analysis_result(self, result: Dict[str, Any], 
-                               original_issue: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Verarbeitet und validiert das Analyseergebnis
-        
-        Args:
-            result: Rohergebnis der Analyse
+            result: Analyse-Ergebnis des Agenten
             original_issue: Ursprüngliches Issue
             
         Returns:
-            Verarbeitetes und validiertes Ergebnis
+            Verarbeitetes WCAG-Mapping
         """
         try:
-            # Grundstruktur erstellen
-            processed = {
-                "original_issue": original_issue,
-                "timestamp": datetime.utcnow().isoformat(),
-                "confidence": result.get("confidence", 0.0)
-            }
+            # Extrahiere WCAG-Kriterien
+            wcag_refs = []
+            if "wcag_criteria" in result:
+                for criterion in result["wcag_criteria"]:
+                    wcag_refs.append(WCAGReference(
+                        criterion_id=criterion.get("id", "unknown"),
+                        level=WCAGLevel[criterion.get("level", "A")],
+                        description=criterion.get("description", ""),
+                        techniques=criterion.get("techniques", []),
+                        failures=criterion.get("failures", [])
+                    ))
             
-            # WCAG-Kriterium extrahieren und validieren
-            if "wcag_criterion" in result:
-                criterion = result["wcag_criterion"]
-                processed["wcag_criterion"] = {
-                    "id": criterion.get("id", "unknown"),
-                    "level": criterion.get("level", "A"),
-                    "description": criterion.get("description", ""),
-                    "techniques": criterion.get("techniques", []),
-                    "failures": criterion.get("failures", [])
-                }
-                
-                # Mapping-Begründung hinzufügen
-                processed["mapping_rationale"] = result.get("rationale", "")
-                
-                # Implementierungsempfehlungen
-                if "recommendations" in result:
-                    processed["recommendations"] = result["recommendations"]
-                
-            return processed
+            # Erstelle AccessibilityIssue
+            issue = AccessibilityIssue(
+                description=original_issue.get("message", ""),
+                type=original_issue.get("type", "unknown"),
+                severity=self._map_severity(result.get("severity", 3)),
+                wcag_refs=wcag_refs,
+                tools=[original_issue.get("tool", "unknown")],
+                context=original_issue.get("context"),
+                selector=original_issue.get("selector"),
+                code=original_issue.get("code"),
+                remediation_steps=result.get("remediation_steps", [])
+            )
+            
+            return self._issue_to_dict(issue)
             
         except Exception as e:
             self.logger.error(f"Error processing analysis result: {str(e)}")
             return self._create_error_result(original_issue, str(e))
-
-    def _create_error_result(self, issue: Dict[str, Any], error: str) -> Dict[str, Any]:
-        """Erstellt ein Fehlerergebnis"""
-        return {
-            "error": error,
-            "original_issue": issue,
-            "timestamp": datetime.utcnow().isoformat()
-        }
-
-    async def generate_remediation_guidance(self, mapping: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Generiert detaillierte Behebungsempfehlungen
         
-        Args:
-            mapping: WCAG-Mapping eines Issues
+        def _map_severity(self, severity: Any) -> IssueSeverity:
+            """
+            Mappt verschiedene Severity-Formate auf IssueSeverity
             
-        Returns:
-            Detaillierte Empfehlungen zur Problembehebung
-        """
-        try:
-            # Task für Empfehlungsgenerierung erstellen
-            guidance_task = Task(
-                description=f"""
-                Generate detailed remediation guidance for the following accessibility issue:
-
-                Issue: {mapping.get('original_issue', {}).get('message', '')}
-                WCAG Criterion: {mapping.get('wcag_criterion', {}).get('id', '')}
-                Level: {mapping.get('wcag_criterion', {}).get('level', '')}
+            Args:
+                severity: Eingangs-Severity-Wert
                 
-                Provide:
-                1. Step-by-step solution
-                2. Code examples
-                3. Implementation guidelines
-                4. Testing procedures
-                5. Best practices
+            Returns:
+                Gemappter IssueSeverity-Wert
+            """
+            if isinstance(severity, IssueSeverity):
+                return severity
                 
-                Format the response as structured guidance suitable for developers.
-                """,
-                agent=self.agent,
-                expected_output="Detailed remediation guidance in JSON format"
-            )
-            
-            # Erstelle temporäre Crew für die Guidance-Generierung
-            guidance_crew = Crew(
-                agents=[self.agent],
-                tasks=[guidance_task],
-                process=Process.sequential,
-                verbose=True
-            )
+            if isinstance(severity, int):
+                try:
+                    return IssueSeverity(severity)
+                except ValueError:
+                    return IssueSeverity.MODERATE
+                    
+            if isinstance(severity, str):
+                severity_map = {
+                    "critical": IssueSeverity.CRITICAL,
+                    "serious": IssueSeverity.SERIOUS,
+                    "moderate": IssueSeverity.MODERATE,
+                    "minor": IssueSeverity.MINOR
+                }
+                return severity_map.get(severity.lower(), IssueSeverity.MODERATE)
+                
+            return IssueSeverity.MODERATE
 
-            # Führe die Analyse durch
-            result = await guidance_crew.kickoff_async(inputs={
-                "issue": mapping.get('original_issue', {}),
-                "wcag_criterion": mapping.get('wcag_criterion', {})
-            })
+        def _issue_to_dict(self, issue: AccessibilityIssue) -> Dict[str, Any]:
+            """
+            Konvertiert ein AccessibilityIssue in ein Dictionary
             
-            if isinstance(result, dict) and result.get('error'):
-                raise Exception(f"Error in guidance generation: {result.get('error')}")
-            
-            # Verarbeite das Ergebnis
-            if hasattr(result, 'raw_output'):
-                guidance = result.raw_output
-            else:
-                guidance = str(result)
-            
+            Args:
+                issue: Zu konvertierendes Issue
+                
+            Returns:
+                Dictionary-Repräsentation des Issues
+            """
             return {
-                "issue_id": mapping.get("original_issue", {}).get("id", "unknown"),
-                "wcag_criterion": mapping.get("wcag_criterion", {}).get("id", "unknown"),
-                "guidance": guidance,
-                "timestamp": datetime.utcnow().isoformat()
+                "description": issue.description,
+                "type": issue.type,
+                "severity": issue.severity.value,
+                "wcag_references": [
+                    {
+                        "criterion_id": ref.criterion_id,
+                        "level": ref.level.name,
+                        "description": ref.description,
+                        "techniques": ref.techniques,
+                        "failures": ref.failures
+                    }
+                    for ref in issue.wcag_refs
+                ],
+                "tools": issue.tools,
+                "context": issue.context,
+                "selector": issue.selector,
+                "code": issue.code,
+                "remediation_steps": issue.remediation_steps,
+                "timestamp": issue.timestamp
             }
+
+        def _create_error_result(self, issue: Dict[str, Any], error: str) -> Dict[str, Any]:
+            """
+            Erstellt ein standardisiertes Fehlerergebnis
             
-        except Exception as e:
-            self.logger.error(f"Error generating remediation guidance: {str(e)}")
+            Args:
+                issue: Ursprüngliches Issue
+                error: Fehlermeldung
+                
+            Returns:
+                Fehlerergebnis als Dictionary
+            """
             return {
-                "error": str(e),
-                "timestamp": datetime.utcnow().isoformat()
+                "error": str(error),
+                "original_issue": issue,
+                "timestamp": datetime.now(timezone.utc).isoformat()
             }
+
+        async def generate_remediation_guidance(self, mapping: Dict[str, Any]) -> Dict[str, Any]:
+            """
+            Generiert detaillierte Behebungsempfehlungen
+            
+            Args:
+                mapping: WCAG-Mapping eines Issues
+                
+            Returns:
+                Detaillierte Empfehlungen zur Problembehebung
+            """
+            try:
+                # Task für Empfehlungsgenerierung erstellen
+                guidance_task = Task(
+                    description=f"""
+                    Generate detailed remediation guidance for the following accessibility issue:
+
+                    Issue: {mapping.get('original_issue', {}).get('message', '')}
+                    WCAG Criterion: {mapping.get('wcag_criterion', {}).get('id', '')}
+                    Level: {mapping.get('wcag_criterion', {}).get('level', '')}
+                    
+                    Provide:
+                    1. Step-by-step solution
+                    2. Code examples
+                    3. Implementation guidelines
+                    4. Testing procedures
+                    5. Best practices
+                    
+                    Format the response as structured guidance suitable for developers.
+                    """,
+                    agent=self.agent
+                )
+
+                # Crew für die Guidance-Generierung
+                guidance_crew = Crew(
+                    agents=[self.agent],
+                    tasks=[guidance_task],
+                    process=Process.sequential
+                )
+
+                # Führe die Analyse durch
+                result = await guidance_crew.kickoff_async(inputs={
+                    "issue": mapping.get('original_issue', {}),
+                    "wcag_criterion": mapping.get('wcag_criterion', {})
+                })
+                
+                if isinstance(result, dict) and result.get('error'):
+                    raise Exception(f"Error in guidance generation: {result.get('error')}")
+                
+                # Verarbeite das Ergebnis
+                guidance = result.get('raw_output', str(result))
+                
+                return {
+                    "issue_id": mapping.get("original_issue", {}).get("id", "unknown"),
+                    "wcag_criterion": mapping.get("wcag_criterion", {}).get("id", "unknown"),
+                    "guidance": guidance,
+                    "timestamp": datetime.now(timezone.utc).isoformat()
+                }
+                
+            except Exception as e:
+                self.logger.error(f"Error generating remediation guidance: {str(e)}")
+                return {
+                    "error": str(e),
+                    "timestamp": datetime.now(timezone.utc).isoformat()
+                }
