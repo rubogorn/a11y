@@ -20,10 +20,11 @@ class ReportGenerator:
         """Initialisiert den Report Generator mit Basis-Konfiguration"""
         self.logger = get_logger('ReportGenerator')
         
-        # Verzeichnisstruktur initialisieren
-        self.template_path = Path("templates")
-        self.css_path = self.template_path / "report_styles.css"
-        self.output_base_path = Path("output/results")
+        # Absolute Pfade basierend auf dem Projektroot
+        self.project_root = Path(__file__).parent.parent
+        self.template_path = self.project_root / "templates"
+        self.css_path = self.template_path / "css" / "report_styles.css"
+        self.output_base_path = self.project_root / "output" / "results"
         
         try:
             self.output_base_path.mkdir(parents=True, exist_ok=True)

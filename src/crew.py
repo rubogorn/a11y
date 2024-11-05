@@ -1,6 +1,7 @@
 # src/crew.py
 
 from typing import TypedDict, List, Optional, Dict, Any
+import aiofiles
 from crewai import Agent, Task, Crew, Process
 from pathlib import Path
 import json
@@ -373,8 +374,20 @@ class WCAGTestingCrew:
     async def run(self, context: Dict[str, Any]) -> Dict[str, Any]:
         """Führt den kompletten WCAG 2.2 Testprozess aus"""
         try:
+            self.logger.info(f"Starting WCAG analysis for URL: {context.get('url')}")
+            
             # WCAG-Analyse durchführen
-            wcag_results = await self.process_results(context)
+            wcag_results = await self.wcag_agent.batch_analyze_issues(
+                context.get("normalized_results", [])
+            )
+            
+            if "error" in wcag_results:
+                raise Exception(f"WCAG analysis failed: {wcag_results['error']}")
+
+            # Generiere Behebungsempfehlungen für alle gefundenen Issues
+            remediation_results = await self.wcag_agent.batch_generate_remediation_guidance(
+                wcag_results.get("accessibility_issues", [])
+            )
             
             # Crew für detaillierte Analyse erstellen
             crew = Crew(
@@ -400,34 +413,78 @@ class WCAGTestingCrew:
                 verbose=True
             )
             
+            # Erweitere den Kontext um die bisherigen Ergebnisse
+            enhanced_context = {
+                **context,
+                "wcag_analysis": wcag_results,
+                "remediation_guidance": remediation_results
+            }
+            
             # Crew ausführen und Ergebnisse verarbeiten
-            crew_results = await crew.kickoff_async(inputs=context)
+            crew_results = await crew.kickoff_async(inputs=enhanced_context)
             
             # CrewOutput in Dictionary konvertieren
             serialized_crew_results = self._serialize_crew_output(crew_results)
             
-            # Ergebnisse kombinieren
+            # Kombiniere alle Ergebnisse
             final_results = {
-                "wcag_analysis": wcag_results,
-                "crew_analysis": serialized_crew_results,
-                "status": "completed",  # Expliziter Status
                 "url": context.get("url", ""),
-                "timestamp": datetime.now(timezone.utc).isoformat()
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "wcag_analysis": wcag_results,
+                "remediation_guidance": remediation_results,
+                "crew_analysis": serialized_crew_results,
+                "summary": {
+                    "total_issues": len(wcag_results.get("accessibility_issues", [])),
+                    "remediation_success_rate": remediation_results.get("summary", {}).get("success_rate", 0),
+                    "by_level": wcag_results.get("summary", {}).get("by_level", {}),
+                    "by_principle": wcag_results.get("summary", {}).get("by_principle", {})
+                },
+                "status": "completed"
             }
             
-            # Statusbericht erstellen
-            if not wcag_results.get("error"):
-                remediation_guidance = await self.wcag_agent.generate_remediation_guidance(wcag_results)
-                final_results["remediation_guidance"] = remediation_guidance
+            # Speichere detaillierte Ergebnisse
+            await self._save_detailed_results(final_results)
             
             return final_results
 
         except Exception as e:
             error_msg = f"Error in run process: {str(e)}"
-            self.logger.error(error_msg)
+            self.logger.error(error_msg, exc_info=True)
             return {
                 "error": error_msg,
                 "status": "failed",
                 "url": context.get("url", ""),
                 "timestamp": datetime.now(timezone.utc).isoformat()
             }
+
+    async def _save_detailed_results(self, results: Dict[str, Any]) -> None:
+        """
+        Speichert detaillierte Analyseergebnisse
+        
+        Args:
+            results: Zu speichernde Ergebnisse
+        """
+        try:
+            # Erstelle Zeitstempel-basierten Unterordner
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            results_dir = self.results_path / timestamp
+            results_dir.mkdir(parents=True, exist_ok=True)
+            
+            # Speichere die verschiedenen Ergebnistypen
+            async with aiofiles.open(results_dir / "wcag_analysis.json", 'w') as f:
+                await f.write(json.dumps(results.get("wcag_analysis", {}), indent=2))
+                
+            async with aiofiles.open(results_dir / "remediation_guidance.json", 'w') as f:
+                await f.write(json.dumps(results.get("remediation_guidance", {}), indent=2))
+                
+            async with aiofiles.open(results_dir / "crew_analysis.json", 'w') as f:
+                await f.write(json.dumps(results.get("crew_analysis", {}), indent=2))
+                
+            # Speichere eine Zusammenfassung
+            async with aiofiles.open(results_dir / "summary.json", 'w') as f:
+                await f.write(json.dumps(results.get("summary", {}), indent=2))
+                
+            self.logger.info(f"Saved detailed results to {results_dir}")
+            
+        except Exception as e:
+            self.logger.error(f"Error saving detailed results: {e}")
