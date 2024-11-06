@@ -11,6 +11,7 @@ from datetime import datetime, timezone
 from .wcag.unified_result_processor import UnifiedResultProcessor
 from .logging_config import get_logger
 from .wcag.wcag_mapping_agent import WCAGMappingAgent
+from .wcag.unified_result_processor import UnifiedResultProcessor
 from .wcag.wcag_analyzers import (
     HTMLAnalyzer, 
     Pa11yAnalyzer, 
@@ -36,12 +37,17 @@ class WCAGTestingCrew:
         self.results_path.mkdir(parents=True, exist_ok=True)
         self.logger = get_logger('WCAGTestingCrew', log_dir='output/results/logs')
         
+        # Result Processor initialisieren
+        self.result_processor = UnifiedResultProcessor(logger=self.logger)
+        
         # WCAG Integration Manager initialisieren
         self.wcag_agent = WCAGMappingAgent()
         
         # Agenten und Tasks initialisieren
         self._init_agents()
         self._init_tasks()
+
+        self.logger.info("WCAGTestingCrew initialized successfully")
 
     def _init_agents(self):
         """Initialisiert alle benötigten Agenten mit spezifischen Rollen"""
@@ -137,47 +143,52 @@ class WCAGTestingCrew:
     def _init_tasks(self):
         """Initialisiert die Tasks mit WCAG-spezifischen Anforderungen"""
         
-        # Task für initiale WCAG-Analyse
+        # 1. Zuerst die Tool-Ausführungs-Tasks
+        self.run_pa11y = Task(
+            description="Execute and analyze Pa11y tests for the given URL",
+            expected_output="JSON report containing Pa11y test results",
+            agent=self.pa11y_analyzer
+        )
+
+        self.run_axe = Task(
+            description="Execute and analyze Axe Core tests for the given URL",
+            expected_output="JSON report containing Axe Core test results",
+            agent=self.axe_analyzer
+        )
+
+        self.run_lighthouse = Task(
+            description="Execute and analyze Lighthouse accessibility tests",
+            expected_output="JSON report containing Lighthouse test results",
+            agent=self.lighthouse_analyzer
+        )
+        
+        self.analyze_accessibility = Task(
+            description="Perform detailed accessibility analysis of the content structure",
+            expected_output="Detailed analysis of accessibility implementation",
+            agent=self.accessibility_analyzer
+        )
+
+        # 2. Dann die WCAG-Analyse mit den Ergebnissen der Tools
         self.analyze_wcag = Task(
-            description="""Analyze accessibility issues and map to WCAG 2.2 criteria:
+            description="""Analyze tool results and map to WCAG 2.2 criteria:
             
             Process each issue and provide:
             1. Specific WCAG 2.2 criterion mapping
             2. Conformance level (A, AA, AAA)
             3. Clear rationale for mapping
             4. Severity assessment
-            5. Impact analysis
-            
-            Structure the response as detailed JSON with:
-            - criterion_id
-            - level
-            - description
-            - impact
-            - remediation_steps""",
+            5. Impact analysis""",
+            expected_output="Structured JSON containing WCAG mappings and analysis",
             agent=self.wcag_checkpoints,
-            expected_output="""Structured JSON containing WCAG mappings and analysis"""
+            context=[
+                self.run_pa11y,
+                self.run_axe,
+                self.run_lighthouse,
+                self.analyze_accessibility
+            ]  # Wichtig: Kontext der vorherigen Tasks
         )
 
-        # Task für Barrierefreiheitsanalyse
-        self.analyze_accessibility = Task(
-            description="""Perform detailed accessibility analysis of the content:
-            
-            Evaluate:
-            1. Document structure
-            2. ARIA implementation
-            3. Form accessibility
-            4. Content relationships
-            
-            Provide detailed findings on:
-            - Semantic structure
-            - ARIA usage
-            - Keyboard interaction
-            - Content clarity""",
-            agent=self.accessibility_analyzer,
-            expected_output="""Detailed analysis of accessibility implementation"""
-        )
-
-        # Task für Lösungsentwicklung
+        # 3. Entwicklung von Lösungen basierend auf der WCAG-Analyse
         self.develop_solutions = Task(
             description="""Create detailed solutions for identified issues:
             
@@ -185,19 +196,13 @@ class WCAGTestingCrew:
             1. Step-by-step remediation steps
             2. Code examples
             3. Implementation guidance
-            4. Testing steps
-            
-            Include:
-            - Technical requirements
-            - Best practices
-            - Alternative approaches
-            - Validation methods""",
+            4. Testing steps""",
+            expected_output="Comprehensive remediation guidance",
             agent=self.remediation_specialist,
-            expected_output="""Comprehensive remediation guidance""",
-            context=[self.analyze_wcag]
+            context=[self.analyze_wcag]  # Basierend auf der WCAG-Analyse
         )
 
-        # Task für Compliance-Prüfung
+        # 4. Abschließende Validierung
         self.validate_compliance = Task(
             description="""Review and validate all analysis results:
             
@@ -205,37 +210,13 @@ class WCAGTestingCrew:
             1. WCAG mapping accuracy
             2. Severity assessments
             3. Solution completeness
-            4. Documentation quality
-            
-            Ensure:
-            - Complete coverage
-            - Accurate classifications
-            - Clear guidance
-            - Proper documentation""",
+            4. Documentation quality""",
+            expected_output="Validation report with quality assessment",
             agent=self.compliance_controller,
-            expected_output="""Validation report with quality assessment""",
-            context=[self.analyze_wcag, self.develop_solutions]
-        )
-
-        # Task für Pa11y Tests
-        self.run_pa11y = Task(
-            description="""Execute and analyze Pa11y tests...""",  # Beschreibung aus tasks.yaml
-            agent=self.pa11y_analyzer,
-            expected_output="JSON report containing Pa11y findings"
-        )
-
-        # Task für Axe Tests
-        self.run_axe = Task(
-            description="""Execute and analyze Axe Core tests...""",  # Beschreibung aus tasks.yaml
-            agent=self.axe_analyzer,
-            expected_output="JSON report of Axe Core results"
-        )
-
-        # Task für Lighthouse Tests
-        self.run_lighthouse = Task(
-            description="""Execute and analyze Lighthouse tests...""",  # Beschreibung aus tasks.yaml
-            agent=self.lighthouse_analyzer,
-            expected_output="JSON report of Lighthouse results"
+            context=[
+                self.analyze_wcag,
+                self.develop_solutions
+            ]
         )
 
     async def process_results(self, context: Dict[str, Any]) -> Dict[str, Any]:
@@ -375,71 +356,134 @@ class WCAGTestingCrew:
         """Führt den kompletten WCAG 2.2 Testprozess aus"""
         try:
             self.logger.info(f"Starting WCAG analysis for URL: {context.get('url')}")
-            
-            # WCAG-Analyse durchführen
-            wcag_results = await self.wcag_agent.batch_analyze_issues(
-                context.get("normalized_results", [])
-            )
-            
-            if "error" in wcag_results:
-                raise Exception(f"WCAG analysis failed: {wcag_results['error']}")
 
-            # Generiere Behebungsempfehlungen für alle gefundenen Issues
-            remediation_results = await self.wcag_agent.batch_generate_remediation_guidance(
-                wcag_results.get("accessibility_issues", [])
-            )
-            
-            # Crew für detaillierte Analyse erstellen
-            crew = Crew(
+            # Führe die initialen Tests durch
+            test_crew = Crew(
                 agents=[
-                    self.wcag_checkpoints,
-                    self.accessibility_analyzer,
-                    self.remediation_specialist,
-                    self.compliance_controller,
                     self.pa11y_analyzer,
                     self.axe_analyzer,
-                    self.lighthouse_analyzer
+                    self.lighthouse_analyzer,
+                    self.accessibility_analyzer
                 ],
                 tasks=[
-                    self.analyze_wcag,
-                    self.analyze_accessibility,
                     self.run_pa11y,
                     self.run_axe,
                     self.run_lighthouse,
+                    self.analyze_accessibility
+                ],
+                process=Process.sequential,
+                verbose=True
+            )
+
+            # Führe die Tests aus und sammle die Ergebnisse
+            test_results = await test_crew.kickoff_async(inputs=context)
+            
+            # Debug-Logging für test_results
+            self.logger.debug(f"Test results type: {type(test_results)}")
+            self.logger.debug(f"Test results attributes: {dir(test_results)}")
+            
+            # Extrahiere die Ergebnisse aus dem CrewOutput
+            raw_results = {
+                "pa11y": {},
+                "axe": {},
+                "lighthouse": {},
+                "html_structure": {}
+            }
+
+            if hasattr(test_results, 'raw_output'):
+                self.logger.debug(f"Raw output type: {type(test_results.raw_output)}")
+                if test_results.raw_output:
+                    raw_output = test_results.raw_output
+                    # Debug-Logging für raw_output
+                    self.logger.debug(f"Raw output content: {raw_output[:500]}...")  # Erste 500 Zeichen
+
+                    if isinstance(raw_output, str):
+                        try:
+                            parsed_results = json.loads(raw_output)
+                            self.logger.debug("Successfully parsed raw output JSON")
+                            if isinstance(parsed_results, dict):
+                                raw_results.update({
+                                    "pa11y": parsed_results.get("pa11y_results", {}),
+                                    "axe": parsed_results.get("axe_results", {}),
+                                    "lighthouse": parsed_results.get("lighthouse_results", {}),
+                                    "html_structure": parsed_results.get("accessibility_results", {})
+                                })
+                        except json.JSONDecodeError as je:
+                            self.logger.error(f"JSON decode error: {str(je)}")
+                            # Versuche, die Ausgabe als direktes Ergebnis zu verwenden
+                            raw_results["html_structure"] = {"results": raw_output}
+                    elif isinstance(raw_output, dict):
+                        raw_results.update({
+                            "pa11y": raw_output.get("pa11y_results", {}),
+                            "axe": raw_output.get("axe_results", {}),
+                            "lighthouse": raw_output.get("lighthouse_results", {}),
+                            "html_structure": raw_output.get("accessibility_results", {})
+                        })
+            
+            # Zusätzliches Debug-Logging für gesammelte Ergebnisse
+            for tool, results in raw_results.items():
+                self.logger.debug(f"{tool} results present: {bool(results)}")
+                if results:
+                    self.logger.debug(f"{tool} results type: {type(results)}")
+                    if isinstance(results, dict):
+                        self.logger.debug(f"{tool} keys: {results.keys()}")
+
+            # Normalisiere die Testergebnisse
+            normalized_results = self.result_processor.merge_results(raw_results)
+            self.logger.info(f"Normalized {len(normalized_results)} issues")
+            
+            # Update context mit den normalisierten Ergebnissen
+            enhanced_context = {
+                **context,
+                "normalized_results": normalized_results,
+                "raw_results": raw_results
+            }
+
+            # Führe die WCAG-Analyse durch
+            analysis_crew = Crew(
+                agents=[
+                    self.wcag_checkpoints,
+                    self.remediation_specialist,
+                    self.compliance_controller
+                ],
+                tasks=[
+                    self.analyze_wcag,
                     self.develop_solutions,
                     self.validate_compliance
                 ],
                 process=Process.sequential,
                 verbose=True
             )
+
+            # Analyse durchführen
+            analysis_results = await analysis_crew.kickoff_async(inputs=enhanced_context)
             
-            # Erweitere den Kontext um die bisherigen Ergebnisse
-            enhanced_context = {
-                **context,
-                "wcag_analysis": wcag_results,
-                "remediation_guidance": remediation_results
-            }
-            
-            # Crew ausführen und Ergebnisse verarbeiten
-            crew_results = await crew.kickoff_async(inputs=enhanced_context)
-            
-            # CrewOutput in Dictionary konvertieren
-            serialized_crew_results = self._serialize_crew_output(crew_results)
+            # Extrahiere die Analyseergebnisse
+            analysis_dict = {}
+            if hasattr(analysis_results, 'raw_output'):
+                try:
+                    if isinstance(analysis_results.raw_output, str):
+                        analysis_dict = json.loads(analysis_results.raw_output)
+                    elif isinstance(analysis_results.raw_output, dict):
+                        analysis_dict = analysis_results.raw_output
+                except json.JSONDecodeError:
+                    self.logger.warning("Could not parse analysis results JSON")
+                    analysis_dict = {"raw_output": analysis_results.raw_output}
             
             # Kombiniere alle Ergebnisse
             final_results = {
                 "url": context.get("url", ""),
                 "timestamp": datetime.now(timezone.utc).isoformat(),
-                "wcag_analysis": wcag_results,
-                "remediation_guidance": remediation_results,
-                "crew_analysis": serialized_crew_results,
+                "status": "completed",
+                "raw_results": raw_results,
+                "issues": normalized_results,
+                "analysis": analysis_dict,
                 "summary": {
-                    "total_issues": len(wcag_results.get("accessibility_issues", [])),
-                    "remediation_success_rate": remediation_results.get("summary", {}).get("success_rate", 0),
-                    "by_level": wcag_results.get("summary", {}).get("by_level", {}),
-                    "by_principle": wcag_results.get("summary", {}).get("by_principle", {})
-                },
-                "status": "completed"
+                    "total_issues": len(normalized_results),
+                    "by_level": analysis_dict.get("by_level", {}),
+                    "by_principle": analysis_dict.get("by_principle", {}),
+                    "by_severity": analysis_dict.get("by_severity", {})
+                }
             }
             
             # Speichere detaillierte Ergebnisse
@@ -457,6 +501,58 @@ class WCAGTestingCrew:
                 "timestamp": datetime.now(timezone.utc).isoformat()
             }
 
+    def _extract_task_output(self, task) -> Dict[str, Any]:
+        """
+        Extrahiert die Ergebnisse aus einem Task-Output
+        
+        Args:
+            task: Task-Objekt mit Output
+            
+        Returns:
+            Dictionary mit den Ergebnissen oder leeres Dictionary bei Fehler
+        """
+        try:
+            if hasattr(task, 'output') and task.output:
+                if hasattr(task.output, 'raw'):
+                    try:
+                        if isinstance(task.output.raw, str):
+                            return json.loads(task.output.raw)
+                        elif isinstance(task.output.raw, dict):
+                            return task.output.raw
+                    except json.JSONDecodeError:
+                        self.logger.warning(f"Could not parse JSON from task output: {task.output.raw[:100]}...")
+                        return {"results": task.output.raw}
+                elif hasattr(task.output, 'json'):
+                    return task.output.json
+            return {}
+        except Exception as e:
+            self.logger.error(f"Error extracting task output: {str(e)}")
+            return {}
+
+    def _extract_analysis_results(self, results) -> Dict[str, Any]:
+        """
+        Extrahiert die Analyseergebnisse aus den Crew-Results
+        
+        Args:
+            results: CrewOutput Objekt
+            
+        Returns:
+            Dictionary mit den Analyseergebnissen
+        """
+        try:
+            if hasattr(results, 'raw'):
+                if isinstance(results.raw, str):
+                    try:
+                        return json.loads(results.raw)
+                    except json.JSONDecodeError:
+                        return {"raw_output": results.raw}
+                elif isinstance(results.raw, dict):
+                    return results.raw
+            return {}
+        except Exception as e:
+            self.logger.error(f"Error extracting analysis results: {str(e)}")
+            return {}
+
     async def _save_detailed_results(self, results: Dict[str, Any]) -> None:
         """
         Speichert detaillierte Analyseergebnisse
@@ -471,16 +567,15 @@ class WCAGTestingCrew:
             results_dir.mkdir(parents=True, exist_ok=True)
             
             # Speichere die verschiedenen Ergebnistypen
-            async with aiofiles.open(results_dir / "wcag_analysis.json", 'w') as f:
-                await f.write(json.dumps(results.get("wcag_analysis", {}), indent=2))
+            async with aiofiles.open(results_dir / "test_results.json", 'w') as f:
+                await f.write(json.dumps(results.get("test_results", {}), indent=2))
                 
-            async with aiofiles.open(results_dir / "remediation_guidance.json", 'w') as f:
-                await f.write(json.dumps(results.get("remediation_guidance", {}), indent=2))
+            async with aiofiles.open(results_dir / "normalized_results.json", 'w') as f:
+                await f.write(json.dumps(results.get("issues", {}), indent=2))
                 
-            async with aiofiles.open(results_dir / "crew_analysis.json", 'w') as f:
-                await f.write(json.dumps(results.get("crew_analysis", {}), indent=2))
+            async with aiofiles.open(results_dir / "analysis_results.json", 'w') as f:
+                await f.write(json.dumps(results.get("analysis", {}), indent=2))
                 
-            # Speichere eine Zusammenfassung
             async with aiofiles.open(results_dir / "summary.json", 'w') as f:
                 await f.write(json.dumps(results.get("summary", {}), indent=2))
                 

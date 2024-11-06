@@ -1,13 +1,13 @@
 # src/wcag/unified_result_processor.py
 
-from typing import Dict, List, Any, Optional, Set
+from typing import Dict, List, Any, Optional, Union, Set
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
 import logging
 from pathlib import Path
 import json
-
+import re
 import aiofiles
 
 class WCAGLevel(Enum):
@@ -203,6 +203,179 @@ class UnifiedResultProcessor:
             if tool not in self.summary["by_tool"]:
                 self.summary["by_tool"][tool] = 0
             self.summary["by_tool"][tool] += 1
+
+    def merge_results(self, results: Dict[str, Any]) -> List[AccessibilityIssue]:
+        """
+        Kombiniert und normalisiert die Ergebnisse aus verschiedenen Quellen
+        
+        Args:
+            results: Dictionary mit Ergebnissen aus verschiedenen Tools
+                {
+                    'pa11y': {...},
+                    'axe': {...},
+                    'lighthouse': {...},
+                    'html_structure': {...}
+                }
+                
+        Returns:
+            Liste von AccessibilityIssue-Objekten
+        """
+        try:
+            self.logger.info("Starting to merge and normalize results")
+            
+            # Sammle alle Issues
+            all_issues = []
+            
+            # Verarbeite Pa11y Ergebnisse
+            if "pa11y" in results:
+                issues = results["pa11y"].get("results", [])
+                if issues:
+                    for issue in issues:
+                        normalized_issue = self._normalize_issue(issue, "pa11y")
+                        if normalized_issue:
+                            self.add_issue(normalized_issue)
+                            all_issues.append(normalized_issue)
+            
+            # Verarbeite Axe Ergebnisse
+            if "axe" in results:
+                issues = results["axe"].get("results", [])
+                if issues:
+                    for issue in issues:
+                        normalized_issue = self._normalize_issue(issue, "axe")
+                        if normalized_issue:
+                            self.add_issue(normalized_issue)
+                            all_issues.append(normalized_issue)
+            
+            # Verarbeite Lighthouse Ergebnisse
+            if "lighthouse" in results:
+                issues = results["lighthouse"].get("results", [])
+                if issues:
+                    for issue in issues:
+                        normalized_issue = self._normalize_issue(issue, "lighthouse")
+                        if normalized_issue:
+                            self.add_issue(normalized_issue)
+                            all_issues.append(normalized_issue)
+            
+            # Verarbeite HTML Struktur Ergebnisse
+            if "html_structure" in results:
+                issues = results["html_structure"].get("results", [])
+                if issues:
+                    for issue in issues:
+                        normalized_issue = self._normalize_issue(issue, "html_structure")
+                        if normalized_issue:
+                            self.add_issue(normalized_issue)
+                            all_issues.append(normalized_issue)
+            
+            self.logger.info(f"Merged {len(all_issues)} issues from all sources")
+            return all_issues
+            
+        except Exception as e:
+            self.logger.error(f"Error merging results: {str(e)}", exc_info=True)
+            return []
+
+    def _normalize_issue(self, issue: Dict[str, Any], tool: str) -> Optional[AccessibilityIssue]:
+        """
+        Normalisiert ein einzelnes Issue in ein standardisiertes Format
+        
+        Args:
+            issue: Zu normalisierendes Issue
+            tool: Name des Tools, das das Issue gefunden hat
+            
+        Returns:
+            Normalisiertes AccessibilityIssue oder None bei ungültigen Issues
+        """
+        try:
+            if not issue:
+                return None
+                
+            # Extrahiere WCAG-Referenzen
+            wcag_refs = []
+            for ref in self._extract_wcag_refs(issue):
+                wcag_refs.append(WCAGReference(
+                    criterion_id=ref,
+                    level=WCAGLevel.A,  # Default to Level A if not specified
+                    description="",
+                    techniques=[],
+                    failures=[]
+                ))
+                
+            # Erstelle AccessibilityIssue
+            normalized = AccessibilityIssue(
+                description=issue.get("message", issue.get("description", "")),
+                type=issue.get("type", "unknown"),
+                severity=IssueSeverity(self._map_severity(issue.get("severity", "moderate"))),
+                wcag_refs=wcag_refs,
+                tools=[tool],
+                context=issue.get("context"),
+                selector=issue.get("selector"),
+                code=issue.get("code"),
+                remediation_steps=issue.get("remediation_steps", [])
+            )
+                
+            return normalized
+                
+        except Exception as e:
+            self.logger.error(f"Error normalizing issue: {str(e)}")
+            return None
+
+    def _map_severity(self, severity: Union[str, int]) -> int:
+        """
+        Mappt verschiedene Severity-Formate auf einen einheitlichen Wert
+        
+        Args:
+            severity: Eingangs-Severity (String oder Int)
+            
+        Returns:
+            Normalisierter Severity-Wert (1-4)
+        """
+        if isinstance(severity, int) and 1 <= severity <= 4:
+            return severity
+            
+        severity_map = {
+            "error": 1,
+            "critical": 1,
+            "serious": 2,
+            "warning": 2,
+            "moderate": 3,
+            "minor": 4,
+            "notice": 4
+        }
+        
+        if isinstance(severity, str):
+            return severity_map.get(severity.lower(), 3)
+        
+        return 3
+
+    def _extract_wcag_refs(self, issue: Dict[str, Any]) -> List[str]:
+        """
+        Extrahiert WCAG-Referenzen aus einem Issue
+        
+        Args:
+            issue: Issue mit potenziellen WCAG-Referenzen
+            
+        Returns:
+            Liste von WCAG-Kriterien
+        """
+        wcag_refs = []
+        
+        # Suche in verschiedenen möglichen Feldern
+        if "wcag" in issue:
+            if isinstance(issue["wcag"], list):
+                wcag_refs.extend(issue["wcag"])
+            elif isinstance(issue["wcag"], str):
+                wcag_refs.append(issue["wcag"])
+        
+        # Suche in der Beschreibung nach WCAG-Referenzen
+        description = issue.get("message", issue.get("description", ""))
+        if description:
+            # Suche nach Patterns wie "WCAG2.1.1" oder "WCAG 2.1.1"
+            import re
+            wcag_pattern = r"WCAG\s*(\d+\.\d+\.\d+)"
+            matches = re.findall(wcag_pattern, description)
+            for match in matches:
+                wcag_refs.append(f"WCAG {match}")
+        
+        return list(set(wcag_refs))  # Entferne Duplikate
 
     def get_issues(self, severity: Optional[IssueSeverity] = None, 
                   level: Optional[WCAGLevel] = None) -> List[AccessibilityIssue]:
