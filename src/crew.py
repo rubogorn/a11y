@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 import json
 import aiofiles
 from typing import Dict, Any
-
+from crewai_tools import DirectoryReadTool
 from .wcag.unified_result_processor import UnifiedResultProcessor
 from .logging_config import get_logger
 
@@ -18,6 +18,7 @@ class WCAGTestingCrew:
 
     agents_config = 'config/agents.yaml'
     tasks_config = 'config/tasks.yaml'
+
 
     def __init__(self):
         """Initialize the WCAG Testing Crew with all components"""
@@ -35,7 +36,7 @@ class WCAGTestingCrew:
     def compliance_controller(self) -> Agent:
         return Agent(
             config=self.agents_config['compliance_controller'],
-            verbose=True
+            tools=[DirectoryReadTool()]
         )
 
     @agent
@@ -59,12 +60,12 @@ class WCAGTestingCrew:
     #         verbose=True
     #     )
 
-    @agent
-    def axe_analyzer(self) -> Agent:
-        return Agent(
-            config=self.agents_config['axe_analyzer'],
-            verbose=True
-        )
+    # @agent
+    # def axe_analyzer(self) -> Agent:
+    #     return Agent(
+    #         config=self.agents_config['axe_analyzer'],
+    #         verbose=True
+    #     )
 
     # @agent
     # def lighthouse_analyzer(self) -> Agent:
@@ -98,11 +99,11 @@ class WCAGTestingCrew:
     #         config=self.tasks_config['run_pa11y_tests']
     #     )
 
-    @task
-    def run_axe_tests(self) -> Task:
-        return Task(
-            config=self.tasks_config['run_axe_tests']
-        )
+    # @task
+    # def run_axe_tests(self) -> Task:
+    #     return Task(
+    #         config=self.tasks_config['run_axe_tests']
+    #     )
 
     # @task
     # def run_lighthouse_tests(self) -> Task:

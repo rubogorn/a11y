@@ -42,23 +42,23 @@ verify_tool_availability:
 #   context:
 #     - verify_tool_availability
 
-run_axe_tests:
-  description: >
-    Execute and analyze Axe Core tests for {url}.
-    
-    Focus on:
-    - Dynamic content
-    - JavaScript interactions
-    - AJAX updates
-    - SPA behavior
-    
-    IMPORTANT: Only process when Axe is implemented.
-    Report "not implemented" status if unavailable.
-  expected_output: >
-    JSON report of Axe Core results or implementation status.
-  agent: axe_analyzer
-  context:
-    - verify_tool_availability
+# run_axe_tests:
+#   description: >
+#     Execute and analyze Axe Core tests for {url}.
+#     
+#     Focus on:
+#     - Dynamic content
+#     - JavaScript interactions
+#     - AJAX updates
+#     - SPA behavior
+#     
+#     IMPORTANT: Only process when Axe is implemented.
+#     Report "not implemented" status if unavailable.
+#   expected_output: >
+#     JSON report of Axe Core results or implementation status.
+#   agent: axe_analyzer
+#   context:
+#     - verify_tool_availability
 
 # run_lighthouse_tests:
 #   description: >
@@ -119,7 +119,7 @@ analyze_wcag_structure:
   agent: accessibility_analyzer
   context:
     #- run_pa11y_tests
-    - run_axe_tests
+    #- run_axe_tests
     #- run_lighthouse_tests
 
 # WCAG Mapping und Analyse
