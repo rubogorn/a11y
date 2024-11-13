@@ -9,6 +9,7 @@ from pathlib import Path
 import json
 import re
 import aiofiles
+from .analyzers.base_analyzer import BaseToolAnalyzer
 
 class WCAGLevel(Enum):
     A = "A"
@@ -204,70 +205,103 @@ class UnifiedResultProcessor:
                 self.summary["by_tool"][tool] = 0
             self.summary["by_tool"][tool] += 1
 
-    def merge_results(self, results: Dict[str, Any]) -> List[AccessibilityIssue]:
+    def merge_results(self, results: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """
-        Kombiniert und normalisiert die Ergebnisse aus verschiedenen Quellen
+        Combines and normalizes results from different sources
         
         Args:
-            results: Dictionary mit Ergebnissen aus verschiedenen Tools
-                {
-                    'pa11y': {...},
-                    'axe': {...},
-                    'lighthouse': {...},
-                    'html_structure': {...}
-                }
-                
+            results: List of analyzer results
+            
         Returns:
-            Liste von AccessibilityIssue-Objekten
+            List of normalized results
         """
         try:
             self.logger.info("Starting to merge and normalize results")
             
+            if not results:
+                self.logger.warning("No results to merge")
+                return []
+                
             # Sammle alle Issues
             all_issues = []
             
-            # Verarbeite Pa11y Ergebnisse
-            if "pa11y" in results:
-                issues = results["pa11y"].get("results", [])
-                if issues:
-                    for issue in issues:
-                        normalized_issue = self._normalize_issue(issue, "pa11y")
-                        if normalized_issue:
-                            self.add_issue(normalized_issue)
-                            all_issues.append(normalized_issue)
+            for result in results:
+                if not isinstance(result, dict):
+                    try:
+                        # Try to parse if it's a JSON string
+                        if isinstance(result, str):
+                            import json
+                            result = json.loads(result)
+                        else:
+                            self.logger.warning(f"Skipping invalid result type: {type(result)}")
+                            continue
+                    except Exception as e:
+                        self.logger.error(f"Error parsing result: {str(e)}")
+                        continue
+
+                if result.get("status") != "success":
+                    self.logger.debug(f"Skipping failed result: {result.get('status')}")
+                    continue
+
+                # Get the actual issues
+                issues = result.get("results", {}).get("issues", [])
+                if not issues and "issues" in result:
+                    issues = result["issues"]
+                
+                tool = result.get("tool", "unknown")
+                
+                # Process each issue
+                for issue in issues:
+                    try:
+                        normalized = self._normalize_issue(issue, tool)
+                        if normalized:
+                            all_issues.append(normalized)
+                    except Exception as e:
+                        self.logger.error(f"Error normalizing issue: {str(e)}")
+                        continue
+
+            # Remove duplicates based on message and selector
+            unique_issues = {}
+            for issue in all_issues:
+                key = (
+                    issue.get("message", ""),
+                    issue.get("selector", ""),
+                    issue.get("type", "")
+                )
+                
+                if key not in unique_issues:
+                    unique_issues[key] = issue
+                else:
+                    # Update existing issue
+                    existing = unique_issues[key]
+                    if "tools" in existing:
+                        existing["tools"].append(issue.get("tool", "unknown"))
+                    if "wcag_criteria" in issue:
+                        existing.setdefault("wcag_criteria", []).extend(
+                            issue.get("wcag_criteria", [])
+                        )
+
+            # Convert back to list and clean up
+            final_issues = list(unique_issues.values())
             
-            # Verarbeite Axe Ergebnisse
-            if "axe" in results:
-                issues = results["axe"].get("results", [])
-                if issues:
-                    for issue in issues:
-                        normalized_issue = self._normalize_issue(issue, "axe")
-                        if normalized_issue:
-                            self.add_issue(normalized_issue)
-                            all_issues.append(normalized_issue)
+            # Clean up duplicate WCAG criteria
+            for issue in final_issues:
+                if "wcag_criteria" in issue:
+                    issue["wcag_criteria"] = list(set(issue["wcag_criteria"]))
+                if "tools" in issue:
+                    issue["tools"] = list(set(issue["tools"]))
             
-            # Verarbeite Lighthouse Ergebnisse
-            if "lighthouse" in results:
-                issues = results["lighthouse"].get("results", [])
-                if issues:
-                    for issue in issues:
-                        normalized_issue = self._normalize_issue(issue, "lighthouse")
-                        if normalized_issue:
-                            self.add_issue(normalized_issue)
-                            all_issues.append(normalized_issue)
+            # Sort by severity
+            final_issues.sort(
+                key=lambda x: (
+                    x.get("severity", 3),
+                    x.get("type", "unknown"),
+                    x.get("message", "")
+                )
+            )
             
-            # Verarbeite HTML Struktur Ergebnisse
-            if "html_structure" in results:
-                issues = results["html_structure"].get("results", [])
-                if issues:
-                    for issue in issues:
-                        normalized_issue = self._normalize_issue(issue, "html_structure")
-                        if normalized_issue:
-                            self.add_issue(normalized_issue)
-                            all_issues.append(normalized_issue)
-            
-            self.logger.info(f"Merged {len(all_issues)} issues from all sources")
-            return all_issues
+            self.logger.info(f"Merged {len(final_issues)} unique issues")
+            return final_issues
             
         except Exception as e:
             self.logger.error(f"Error merging results: {str(e)}", exc_info=True)

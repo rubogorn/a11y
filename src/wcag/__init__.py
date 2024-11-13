@@ -17,12 +17,6 @@ from .wcag_analysis import (
 
 from .wcag_mapping_agent import WCAGMappingAgent
 from .wcag_integration_manager import WCAGIntegrationManager
-from .wcag_analyzers import (
-    HTMLAnalyzer,
-    Pa11yAnalyzer,
-    AxeAnalyzer,
-    LighthouseAnalyzer
-)
 
 __all__ = [
     'UnifiedResultProcessor',

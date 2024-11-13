@@ -26,223 +26,135 @@ verify_tool_availability:
 # Technische Tests
 run_pa11y_tests:
   description: >
-    Execute and analyze Pa11y tests for {url}.
+    Execute Pa11y accessibility tests for the given URL.
+    Use the Pa11y tool to conduct a thorough accessibility analysis.
     
-    Focus on:
-    - Keyboard navigation
-    - Focus management
-    - Form controls
-    - Error messages
+    Required checks:
+    1. Execute Pa11y with WCAG2AA standard
+    2. Check for all accessibility violations
+    3. Include error context and code snippets
+    4. Process and validate all results
     
-    IMPORTANT: Only include actual Pa11y results.
-    If Pa11y fails, report the error without assumptions.
+    Return the actual test results in a well-structured JSON format.
   expected_output: >
-    JSON report containing only actual Pa11y findings.
+    JSON object containing Pa11y test results with actual findings
   agent: pa11y_analyzer
   context:
-    - verify_tool_availability
+    url: "{{url}}"
+    description: "URL to be analyzed for accessibility issues"
+    expected_output: "Accessibility test results for the given URL"
 
 run_axe_tests:
   description: >
-    Execute and analyze Axe Core tests for {url}.
+    Execute Axe Core accessibility tests for the given URL.
+    Use the Axe Core tool to perform comprehensive accessibility testing.
     
-    Focus on:
-    - Dynamic content
-    - JavaScript interactions
-    - AJAX updates
-    - SPA behavior
+    Required checks:
+    1. Run complete Axe Core analysis
+    2. Check all WCAG 2.1 rules
+    3. Include detailed issue descriptions
+    4. Provide specific code contexts
     
-    IMPORTANT: Only process when Axe is implemented.
-    Report "not implemented" status if unavailable.
+    Return the actual test results in a well-structured JSON format.
+    DO NOT return example data.
   expected_output: >
-    JSON report of Axe Core results or implementation status.
+    JSON object containing actual Axe Core test results
   agent: axe_analyzer
-  context:
-    - verify_tool_availability
 
 run_lighthouse_tests:
   description: >
-    Execute and analyze Lighthouse tests for {url}.
+    Execute Lighthouse accessibility tests for the given URL.
+    Use Lighthouse to perform a complete accessibility audit.
     
-    Check:
-    - Performance impact
-    - Mobile accessibility
-    - Progressive enhancement
-    - SEO aspects
+    Required checks:
+    1. Run Lighthouse accessibility analysis
+    2. Capture all accessibility scores
+    3. Document specific violations
+    4. Include performance impact
     
-    IMPORTANT: Only process when Lighthouse is implemented.
-    Report "not implemented" status if unavailable.
+    Return the actual test results in a well-structured JSON format.
+    DO NOT return example data.
   expected_output: >
-    JSON report of Lighthouse results or implementation status.
+    JSON object containing actual Lighthouse accessibility test results
   agent: lighthouse_analyzer
-  context:
-    - verify_tool_availability
 
 # Struktur- und Inhaltsanalyse
 analyze_wcag_structure:
   description: >
-    Analyze accessibility structure and provide WCAG 2.2 mappings for {url}.
-
-    Required Analysis:
-    1. Document Structure:
-       - Semantic HTML usage
-       - Heading hierarchy
-       - Landmark regions
-       - ARIA implementation
-
-    2. Content Relationships:
-       - Information hierarchy
-       - Content grouping
-       - Related elements
-       - Context associations
-
-    3. Interactive Elements:
-       - Form controls
-       - Navigation mechanisms
-       - Custom widgets
-       - Focus management
-
-    4. Technical Implementation:
-       - HTML validation
-       - ARIA patterns
-       - Event handling
-       - State management
-
-    IMPORTANT: Provide detailed technical analysis with
-    specific WCAG 2.2 criterion references.
+    Analyze the HTML structure and accessibility features.
+    Perform a detailed static analysis of the page content.
+    
+    Required checks:
+    1. Document structure
+    2. ARIA implementation
+    3. Form accessibility
+    4. Content relationships
+    
+    Use the actual page content for analysis.
+    DO NOT return example data.
   expected_output: >
-    Structured JSON report containing:
-    - Technical findings
-    - WCAG mappings
-    - Implementation details
-    - Severity assessments
+    Detailed analysis of actual accessibility implementation
   agent: accessibility_analyzer
-  context:
-    - run_pa11y_tests
-    - run_axe_tests
-    - run_lighthouse_tests
 
 # WCAG Mapping und Analyse
 map_wcag_criteria:
   description: >
-    Map identified issues to specific WCAG 2.2 criteria for {url}.
-
-    Required Mapping:
-    1. Criterion Identification:
-       - Specific WCAG 2.2 references
-       - Conformance levels
-       - Related techniques
-       - Applicable failures
-
-    2. Impact Analysis:
-       - Severity assessment
-       - User impact
-       - Scope of issue
-       - Technical complexity
-
-    3. Documentation:
-       - Clear rationale
-       - Supporting evidence
-       - Related guidelines
-       - Testing notes
-
-    4. Context Integration:
-       - Relationship to other issues
-       - Implementation considerations
-       - Testing implications
-       - Validation requirements
-
-    IMPORTANT: Ensure comprehensive coverage of all
-    relevant WCAG 2.2 success criteria.
+    Analyze actual tool results and map to WCAG 2.2 criteria.
+    Use the results from previous tasks for analysis.
+    
+    Required:
+    1. Process actual test results
+    2. Map to specific WCAG criteria
+    3. Assess conformance levels
+    4. Validate findings
+    
+    Base analysis only on actual test results.
+    DO NOT create artificial results.
   expected_output: >
-    Detailed JSON mapping containing:
-    - WCAG criterion references
-    - Impact assessments
-    - Technical details
-    - Documentation links
+    Structured JSON containing WCAG mappings for actual findings
   agent: wcag_checkpoints
   context:
+    - run_pa11y_tests
+    - run_axe_tests
+    - run_lighthouse_tests
     - analyze_wcag_structure
 
 # Lösungsentwicklung und Validierung
 develop_remediation:
   description: >
-    Create detailed remediation guidance for identified issues in {url}.
-
-    Required Components:
-    1. Technical Solutions:
-       - Step-by-step fixes
-       - Code examples
-       - Implementation guidance
-       - Testing procedures
-
-    2. Best Practices:
-       - Recommended approaches
-       - Alternative solutions
-       - Prevention strategies
-       - Maintenance guidance
-
-    3. Testing Guidelines:
-       - Validation steps
-       - Test scenarios
-       - Expected outcomes
-       - Success criteria
-
-    4. Documentation:
-       - Clear instructions
-       - Technical requirements
-       - Resource references
-       - Support information
-
-    IMPORTANT: Provide practical, implementable solutions
-    with clear validation steps.
+    Create specific solutions for identified issues.
+    Base recommendations on actual findings.
+    
+    Required:
+    1. Address each actual issue
+    2. Provide specific code fixes
+    3. Include implementation steps
+    4. Add validation tests
+    
+    Focus only on real issues found in testing.
+    DO NOT create solutions for example issues.
   expected_output: >
-    Comprehensive JSON remediation guide with:
-    - Detailed solutions
-    - Implementation steps
-    - Testing procedures
-    - Documentation
+    Detailed remediation guidance for actual findings
   agent: remediation_specialist
   context:
     - map_wcag_criteria
 
 validate_results:
   description: >
-    Review and validate all analysis results and remediation plans for {url}.
-
-    Validation Requirements:
-    1. Completeness Check:
-       - Test coverage
-       - WCAG mapping accuracy
-       - Solution completeness
-       - Documentation quality
-
-    2. Quality Assurance:
-       - Technical accuracy
-       - Implementation viability
-       - Testing thoroughness
-       - Documentation clarity
-
-    3. Standards Compliance:
-       - WCAG 2.2 alignment
-       - Best practices adherence
-       - Testing methodology
-       - Documentation standards
-
-    4. Final Review:
-       - Overall assessment
-       - Gap analysis
-       - Quality metrics
-       - Improvement recommendations
-
-    IMPORTANT: Ensure comprehensive validation of all
-    aspects of the accessibility analysis.
+    Review and validate all analysis results.
+    Focus on actual findings and solutions.
+    
+    Validate:
+    1. Accuracy of findings
+    2. WCAG mappings
+    3. Solution completeness
+    4. Documentation quality
+    
+    Only validate actual test results.
+    DO NOT include artificial validations.
   expected_output: >
-    Final validation report containing:
-    - Quality assessment
-    - Coverage analysis
-    - Improvement recommendations
-    - Sign-off status
+    Validation report based on actual findings
   agent: compliance_controller
   context:
+    - map_wcag_criteria
     - develop_remediation

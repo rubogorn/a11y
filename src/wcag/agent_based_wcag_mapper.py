@@ -3,6 +3,8 @@ from datetime import datetime, timezone
 from dataclasses import dataclass
 from enum import Enum
 import logging
+from pathlib import Path
+import yaml
 from crewai import Agent, Task, Crew, Process
 
 class WCAGLevel(Enum):
@@ -32,17 +34,14 @@ class AgentBasedWCAGMapper:
         """Initialisiert den Agent-basierten WCAG Mapper"""
         self.logger = logger or logging.getLogger(__name__)
         
-        # Definiere den WCAG Checkpoints Agenten
-        self.wcag_agent = Agent(
-            role="WCAG 2.2 Criteria Mapping Specialist",
-            goal="Map accessibility issues to WCAG 2.2 criteria and provide detailed guidance",
-            backstory="""You are an expert in WCAG 2.2 guidelines who specializes in analyzing 
-            test results and mapping them to specific WCAG criteria. You provide structured data 
-            for report generation including criteria details, recommendations, and severity assessments.
-            You have complete knowledge of all WCAG 2.2 success criteria, techniques, and failures.""",
-            allow_delegation=False,
-            verbose=True
-        )
+        # Lade Agent-Konfiguration aus YAML
+        config_path = Path(__file__).parent.parent / 'config' / 'agents.yaml'
+        with open(config_path, 'r', encoding='utf-8') as f:
+            agent_configs = yaml.safe_load(f)
+        
+        # Verwende die WCAG-Checkpoint-Konfiguration
+        wcag_config = agent_configs['wcag_checkpoints']
+        self.wcag_agent = Agent(**wcag_config)
 
     async def analyze_and_map_issues(self, issues: List[Dict[str, Any]]) -> Dict[str, Any]:
         """

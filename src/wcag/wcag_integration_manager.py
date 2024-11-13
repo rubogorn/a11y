@@ -16,7 +16,10 @@ from .unified_result_processor import (
     IssueSeverity
 )
 from .wcag_mapping_agent import WCAGMappingAgent
-from .wcag_analyzers import HTMLAnalyzer, Pa11yAnalyzer, AxeAnalyzer, LighthouseAnalyzer
+from .analyzers.html_analyzer import HTMLAnalyzer
+from .analyzers.pa11y_analyzer import Pa11yAnalyzer
+from .analyzers.axe_analyzer import AxeAnalyzer
+from .analyzers.lighthouse_analyzer import LighthouseAnalyzer
 
 class WCAGIntegrationManager:
     """

@@ -13,6 +13,8 @@ from .unified_result_processor import (
     WCAGLevel,
     IssueSeverity
 )
+from pathlib import Path
+import yaml
 
 class WCAGMappingAgent:
     """
@@ -24,17 +26,14 @@ class WCAGMappingAgent:
         """Initialisiert den WCAGMappingAgent"""
         self.logger = get_logger('WCAGMappingAgent')
         
-        # Agent initialisieren
-        self.agent = Agent(
-            role="WCAG 2.2 Criteria Mapping Specialist",
-            goal="Map accessibility issues to WCAG 2.2 criteria and provide detailed guidance",
-            backstory="""You are an expert in WCAG 2.2 guidelines who specializes in analyzing 
-            test results and mapping them to specific WCAG criteria. You provide structured data 
-            for report generation including criteria details, recommendations, and severity assessments.
-            You have complete knowledge of all WCAG 2.2 success criteria, techniques, and failures.""",
-            allow_delegation=False,
-            verbose=True
-        )
+        # Lade Agent-Konfiguration aus YAML
+        config_path = Path(__file__).parent.parent / 'config' / 'agents.yaml'
+        with open(config_path, 'r', encoding='utf-8') as f:
+            agent_configs = yaml.safe_load(f)
+        
+        # Verwende die WCAG-Checkpoint-Konfiguration
+        wcag_config = agent_configs['wcag_checkpoints']
+        self.agent = Agent(**wcag_config)
 
     async def analyze_accessibility_issue(self, issue: Dict[str, Any]) -> Dict[str, Any]:
         """
