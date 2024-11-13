@@ -24,23 +24,23 @@ verify_tool_availability:
     - init_testing
 
 # Technische Tests
-run_pa11y_tests:
-  description: >
-    Execute and analyze Pa11y tests for {url}.
+# run_pa11y_tests:
+#   description: >
+#     Execute and analyze Pa11y tests for {url}.
     
-    Focus on:
-    - Keyboard navigation
-    - Focus management
-    - Form controls
-    - Error messages
+#     Focus on:
+#     - Keyboard navigation
+#     - Focus management
+#     - Form controls
+#     - Error messages
     
-    IMPORTANT: Only include actual Pa11y results.
-    If Pa11y fails, report the error without assumptions.
-  expected_output: >
-    JSON report containing only actual Pa11y findings.
-  agent: pa11y_analyzer
-  context:
-    - verify_tool_availability
+#     IMPORTANT: Only include actual Pa11y results.
+#     If Pa11y fails, report the error without assumptions.
+#   expected_output: >
+#     JSON report containing only actual Pa11y findings.
+#   agent: pa11y_analyzer
+#   context:
+#     - verify_tool_availability
 
 run_axe_tests:
   description: >
@@ -60,23 +60,23 @@ run_axe_tests:
   context:
     - verify_tool_availability
 
-run_lighthouse_tests:
-  description: >
-    Execute and analyze Lighthouse tests for {url}.
-    
-    Check:
-    - Performance impact
-    - Mobile accessibility
-    - Progressive enhancement
-    - SEO aspects
-    
-    IMPORTANT: Only process when Lighthouse is implemented.
-    Report "not implemented" status if unavailable.
-  expected_output: >
-    JSON report of Lighthouse results or implementation status.
-  agent: lighthouse_analyzer
-  context:
-    - verify_tool_availability
+# run_lighthouse_tests:
+#   description: >
+#     Execute and analyze Lighthouse tests for {url}.
+#     
+#     Check:
+#     - Performance impact
+#     - Mobile accessibility
+#     - Progressive enhancement
+#     - SEO aspects
+#     
+#     IMPORTANT: Only process when Lighthouse is implemented.
+#     Report "not implemented" status if unavailable.
+#   expected_output: >
+#     JSON report of Lighthouse results or implementation status.
+#   agent: lighthouse_analyzer
+#   context:
+#     - verify_tool_availability
 
 # Struktur- und Inhaltsanalyse
 analyze_wcag_structure:
@@ -118,9 +118,9 @@ analyze_wcag_structure:
     - Severity assessments
   agent: accessibility_analyzer
   context:
-    - run_pa11y_tests
+    #- run_pa11y_tests
     - run_axe_tests
-    - run_lighthouse_tests
+    #- run_lighthouse_tests
 
 # WCAG Mapping und Analyse
 map_wcag_criteria:
