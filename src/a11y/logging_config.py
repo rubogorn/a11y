@@ -191,7 +191,6 @@ def get_logger(name: str, log_dir: Optional[str] = None) -> logging.Logger:
     logger.propagate = False
     
     return logger
-
 def configure_root_logger(
     log_dir: str = "output/results/logs",
     console_level: int = logging.INFO,

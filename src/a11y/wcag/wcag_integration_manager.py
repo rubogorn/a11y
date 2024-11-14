@@ -7,7 +7,7 @@ from pathlib import Path
 import json
 import asyncio
 import aiofiles
-from src.logging_config import get_logger
+from ..logging_config import get_logger
 from .unified_result_processor import (
     UnifiedResultProcessor,
     AccessibilityIssue,

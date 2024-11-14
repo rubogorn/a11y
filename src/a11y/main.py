@@ -12,9 +12,13 @@ from http.server import HTTPServer, SimpleHTTPRequestHandler
 import threading
 import socket
 
-from src.crew import WCAGTestingCrew
-from src.logging_config import get_logger
-from src.report_generator import ReportGenerator
+from .crew import WCAGTestingCrew
+from .logging_config import get_logger
+from .report_generator import ReportGenerator
+from datetime import datetime, timezone
+import json
+import aiofiles
+from typing import Dict, Any
 
 class WCAGTestingCLI:
     """Command Line Interface for WCAG Testing"""
@@ -211,6 +215,98 @@ class WCAGTestingCLI:
                 self.logger.warning(f"Invalid choice entered: {choice}")
                 print("Invalid choice. Please try again.")
 
+    async def run(self, context: Dict[str, Any]) -> Dict[str, Any]:
+        """Runs the complete WCAG 2.2 test process"""
+        try:
+            self.logger.info(f"Starting WCAG analysis for URL: {context.get('url')}")
+
+            # Run the crew
+            crew_instance = self.crew.testing_crew()
+            results = await crew_instance.kickoff_async(inputs=context)
+            
+            # Process results
+            final_results = await self.process_results(results, context)
+            
+            # Save detailed results
+            await self._save_detailed_results(final_results)
+            
+            return final_results
+
+        except Exception as e:
+            error_msg = f"Error in run process: {str(e)}"
+            self.logger.error(error_msg, exc_info=True)
+            return {
+                "error": error_msg,
+                "status": "failed",
+                "url": context.get("url", ""),
+                "timestamp": datetime.now(timezone.utc).isoformat()
+            }
+
+    async def process_results(self, crew_output: Any, context: Dict[str, Any]) -> Dict[str, Any]:
+        """Process the test results with WCAG integration"""
+        try:
+            # Extract results from crew output
+            results = self._serialize_crew_output(crew_output)
+            
+            # Add context information
+            results["url"] = context.get("url", "")
+            results["timestamp"] = datetime.now(timezone.utc).isoformat()
+            
+            return results
+
+        except Exception as e:
+            self.logger.error(f"Error processing results: {str(e)}")
+            return {
+                "error": str(e),
+                "status": "failed",
+                "timestamp": datetime.now(timezone.utc).isoformat()
+            }
+
+    def _serialize_crew_output(self, crew_output: Any) -> dict:
+        """Convert CrewOutput to a serializable dictionary with error handling"""
+        try:
+            if hasattr(crew_output, 'raw_output'):
+                if isinstance(crew_output.raw_output, str):
+                    try:
+                        return json.loads(crew_output.raw_output)
+                    except json.JSONDecodeError:
+                        return {"raw_output": crew_output.raw_output}
+                elif isinstance(crew_output.raw_output, dict):
+                    return crew_output.raw_output
+            
+            return {
+                "status": "completed",
+                "message": str(crew_output) if crew_output is not None else None,
+                "issues": [],
+                "summary": {},
+                "timestamp": datetime.now(timezone.utc).isoformat()
+            }
+
+        except Exception as e:
+            self.logger.error(f"Error serializing crew output: {str(e)}")
+            return {
+                "status": "error",
+                "message": f"Error serializing crew output: {str(e)}",
+                "issues": [],
+                "summary": {},
+                "timestamp": datetime.now(timezone.utc).isoformat()
+            }
+
+    async def _save_detailed_results(self, results: Dict[str, Any]) -> None:
+        """Save detailed analysis results"""
+        try:
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            results_dir = self.crew.results_path / timestamp
+            results_dir.mkdir(parents=True, exist_ok=True)
+            
+            async with aiofiles.open(results_dir / "results.json", 'w') as f:
+                await f.write(json.dumps(results, indent=2))
+                
+            self.logger.info(f"Saved detailed results to {results_dir}")
+            
+        except Exception as e:
+            self.logger.error(f"Error saving detailed results: {e}")
+
     async def run_tests(self, url: str) -> None:
         """Run accessibility tests"""
         self.logger.info(f"Starting tests for URL: {url}")
@@ -225,7 +321,7 @@ class WCAGTestingCLI:
             }
 
             # Run crew analysis
-            crew_results = await self.crew.run(context)
+            crew_results = await self.run(context)
             
             if crew_results.get("error"):
                 self.logger.error(f"Analysis failed: {crew_results['error']}")
@@ -266,6 +362,10 @@ class WCAGTestingCLI:
         print("\nDone! Press any key to exit...")
         input()
 
-if __name__ == "__main__":
+def main():
+    """Entry point for the command line interface"""
     cli = WCAGTestingCLI()
     asyncio.run(cli.main())
+
+if __name__ == "__main__":
+    main()

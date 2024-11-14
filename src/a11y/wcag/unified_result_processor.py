@@ -7,7 +7,6 @@ from enum import Enum
 import logging
 from pathlib import Path
 import json
-import re
 import aiofiles
 
 class WCAGLevel(Enum):

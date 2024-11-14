@@ -1,65 +1,30 @@
-[tool.poetry]
-name = "a11y-wcag-testing"
+[project]
+name = "a11y"
 version = "0.1.0"
 description = "WCAG 2.2 Testing System using CrewAI"
-authors = ["Your Name <your.email@example.com>"]
-readme = "README.md"
-packages = [{include = "src"}]
+authors = [
+    { name = "Your Name", email = "your.email@example.com" },
+]
+requires-python = ">=3.10,<=3.13"
+dependencies = [
+    "crewai[tools]>=0.76.9",
+    "crewai-tools>=0.13.4",
+    "beautifulsoup4>=4.12.2",
+    "requests>=2.31.0",
+    "pydantic>=2.5.2",
+    "selenium>=4.15.2",
+    "playwright>=1.40.0",
+    "aiofiles>=24.1.0",
+]
 
-[tool.poetry.dependencies]
-python = ">=3.10,<=3.13"
-crewai = {extras = ["tools"], version = "^0.76.9"}
-crewai-tools = "^0.13.4"
-beautifulsoup4 = "^4.12.2"
-requests = "^2.31.0"
-pydantic = "^2.5.2"
-selenium = "^4.15.2"
-playwright = "^1.40.0"
-aiofiles = "^24.1.0"
+[project.scripts]
+run_crew = "src.a11y.main:main"
 
-[tool.poetry.group.dev.dependencies]
-pytest = ">=8.0.0"  # Aktualisiert für Kompatibilität mit crewai-tools
-pytest-asyncio = "^0.21.1"
-pytest-cov = "^4.1.0"
-black = "^23.11.0"
-flake8 = "^6.1.0"
-isort = "^5.12.0"
-mypy = "^1.6.1"
-bandit = "^1.7.5"
-safety = "^2.3.5"
-coverage = "^7.3.2"
-pytest-mock = "^3.12.0"
-aioresponses = "^0.7.4"
-responses = "^0.24.1"
-types-aiofiles = "^23.2.0.0"
-types-requests = "^2.31.0.10"
-ipdb = "^0.13.13"
+[tool.hatch.build.targets.wheel]
+packages = ["src/a11y"]
 
 [build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
-
-[tool.black]
-line-length = 88
-target-version = ['py310']
-include = '\.pyi?$'
-
-[tool.isort]
-profile = "black"
-multi_line_output = 3
-include_trailing_comma = true
-force_grid_wrap = 0
-use_parentheses = true
-line_length = 88
-
-[tool.mypy]
-python_version = "3.10"
-warn_return_any = true
-warn_unused_configs = true
-disallow_untyped_defs = true
-disallow_incomplete_defs = true
-
-[tool.pytest.ini_options]
-# addopts = "--cov=src --cov-report=xml --cov-report=html"
-testpaths = ["tests"]
-asyncio_mode = "auto"
+requires = [
+    "hatchling",
+]
+build-backend = "hatchling.build"

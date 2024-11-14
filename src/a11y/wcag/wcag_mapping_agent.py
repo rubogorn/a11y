@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 import logging
 import asyncio
 from crewai import Agent, Task, Crew, Process
-from src.logging_config import get_logger
+from ..logging_config import get_logger
 from .unified_result_processor import (
     UnifiedResultProcessor,
     AccessibilityIssue,
