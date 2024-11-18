@@ -1,27 +1,77 @@
-# Initialisierung und Vorbereitung
-init_testing:
-  description: >
-    Initialize WCAG 2.2 testing process for {url}.
+# Initialisierung und Vorbereitung ***alt***
+#init_testing:
+#   description: >
+#     Initialize WCAG 2.2 testing process for {url}.
     
-    Tasks:
-    1. Define test scope and objectives
-    2. Create testing framework
-    3. Prepare analysis environment
-    4. Set up reporting structure
-  expected_output: >
-    JSON configuration defining test scope, framework,
-    and analysis requirements.
-  agent: compliance_controller
+#     Tasks:
+#     1. Define test scope and objectives
+#     2. Create testing framework
+#     3. Prepare analysis environment
+#     4. Set up reporting structure
+#   expected_output: >
+#     JSON configuration defining test scope, framework,
+#     and analysis requirements.
+#   agent: compliance_controller
 
-verify_tool_availability:
-  description: >
-    Verify the availability of required testing tools for {url}.
-    Confirm each tool's status before initiating testing.
-  expected_output: >
-    JSON list of available and unavailable tools.
-  agent: compliance_controller
-  context:
-    - init_testing
+init_testing: 
+   description: >
+      Coordinate and oversee a comprehensive WCAG 2.2 accessibility test for {url}.
+      
+      Follow these steps:
+      1. Initial Assessment
+         - Validate the URL accessibility
+         - Identify key pages and components to test
+         - Document the website's technology stack
+      
+      2. Test Planning
+         - Create a test strategy covering all WCAG 2.2 criteria
+         - Assign specific test areas to specialized agents:
+            * Technical Analysis Agent for code review
+            * Visual Testing Agent for design compliance
+            * Pa11y Integration Agent for automated checks
+      
+      3. Test Execution
+         - Monitor the progress of each agent
+         - Review preliminary results
+         - Identify any gaps in testing
+         - Coordinate with human reviewers when needed
+      
+      4. Results Compilation
+         - Cross-reference findings from all agents
+         - Validate test evidence and completeness
+         - Prioritize issues based on severity
+         - Verify solution recommendations
+      
+      5. Report Finalization
+         - Ensure comprehensive coverage of all WCAG criteria
+         - Verify proper documentation and evidence
+         - Review technical accuracy of findings
+         - Prepare final recommendations
+      
+      Make sure to maintain clear communication and coordinate effectively
+      between all testing agents throughout the process.
+   expected_output: >
+      A comprehensive accessibility test report containing:
+      - Executive summary of findings
+      - Detailed test results for each WCAG 2.2 criterion
+      - Evidence documentation (screenshots, code snippets)
+      - Issue severity classification
+      - Actionable recommendations for improvements
+      - Test methodology documentation
+      
+      The report should be formatted in markdown and include all necessary 
+      sections following the corporate reporting standards.
+   agent: compliance_controller
+
+# verify_tool_availability:
+#   description: >
+#     Verify the availability of required testing tools for {url}.
+#     Confirm each tool's status before initiating testing.
+#   expected_output: >
+#     JSON list of available and unavailable tools.
+#   agent: compliance_controller
+#   context:
+#     - init_testing
 
 # Technische Tests
 # run_pa11y_tests:
@@ -42,23 +92,67 @@ verify_tool_availability:
 #   context:
 #     - verify_tool_availability
 
-# run_axe_tests:
-#   description: >
-#     Execute and analyze Axe Core tests for {url}.
-#     
-#     Focus on:
-#     - Dynamic content
-#     - JavaScript interactions
-#     - AJAX updates
-#     - SPA behavior
-#     
-#     IMPORTANT: Only process when Axe is implemented.
-#     Report "not implemented" status if unavailable.
-#   expected_output: >
-#     JSON report of Axe Core results or implementation status.
-#   agent: axe_analyzer
-#   context:
-#     - verify_tool_availability
+axe_core_testing_task:
+  description: >
+    Execute comprehensive Axe Core accessibility testing for {url} following these steps:
+
+    1. Initial Setup
+       - Verify URL accessibility
+       - Prepare testing environment
+       - Configure test parameters
+       - Set up results directory
+
+    2. Test Execution
+       - Run Axe Core against all WCAG criteria:
+         * WCAG 2.0 (A, AA)
+         * WCAG 2.1 (A, AA)
+         * WCAG 2.2 (AA)
+         * Best Practices
+       - Monitor test execution
+       - Capture all results
+       - Document any testing issues
+
+    3. Results Analysis
+       - Review all violations discovered
+       - Analyze incomplete tests
+       - Document passing criteria
+       - Categorize issues by severity
+       - Identify patterns in violations
+
+    4. Documentation
+       For each violation found:
+       - Document the WCAG criterion violated
+       - Capture specific elements affected
+       - Note the impact level
+       - Provide steps to reproduce
+       - Include remediation suggestions
+
+    Save all results in output/tool-results/ with:
+    - results.json        # Raw Axe Core output
+    - violations/         # Detailed violation reports
+    - incomplete/         # Incomplete test documentation
+    - summary.md         # Test execution summary
+
+  expected_output: >
+    A comprehensive Axe Core test report stored in output/tool-results/ including:
+    - Complete test execution summary
+    - Detailed violation reports
+    - Incomplete test documentation
+    - Passing criteria confirmation
+    - Statistical analysis of results
+    - Actionable recommendations
+
+    The report must include:
+    - Total number of tests executed
+    - Violation count by severity
+    - Incomplete test details
+    - Passing test confirmation
+    - Technical recommendations
+    
+    All results must be properly structured and cross-referenced for integration
+    into the final accessibility report.
+  agent: axe_core_specialist
+  output_file: "output/tool-results/axe-core-summary.md"
 
 # run_lighthouse_tests:
 #   description: >
@@ -117,132 +211,227 @@ analyze_wcag_structure:
     - Implementation details
     - Severity assessments
   agent: accessibility_analyzer
-  context:
+  #context:
     #- run_pa11y_tests
     #- run_axe_tests
     #- run_lighthouse_tests
+  output_file: "output/results/tool-results/analyze_wcag_structure-report.json"
 
 # WCAG Mapping und Analyse
-map_wcag_criteria:
-  description: >
-    Map identified issues to specific WCAG 2.2 criteria for {url}.
+# map_wcag_criteria:
+#   description: >
+#     Map identified issues to specific WCAG 2.2 criteria for {url}.
 
-    Required Mapping:
-    1. Criterion Identification:
-       - Specific WCAG 2.2 references
-       - Conformance levels
-       - Related techniques
-       - Applicable failures
+#     Required Mapping:
+#     1. Criterion Identification:
+#        - Specific WCAG 2.2 references
+#        - Conformance levels
+#        - Related techniques
+#        - Applicable failures
 
-    2. Impact Analysis:
-       - Severity assessment
-       - User impact
-       - Scope of issue
-       - Technical complexity
+#     2. Impact Analysis:
+#        - Severity assessment
+#        - User impact
+#        - Scope of issue
+#        - Technical complexity
 
-    3. Documentation:
-       - Clear rationale
-       - Supporting evidence
-       - Related guidelines
-       - Testing notes
+#     3. Documentation:
+#        - Clear rationale
+#        - Supporting evidence
+#        - Related guidelines
+#        - Testing notes
 
-    4. Context Integration:
-       - Relationship to other issues
-       - Implementation considerations
-       - Testing implications
-       - Validation requirements
+#     4. Context Integration:
+#        - Relationship to other issues
+#        - Implementation considerations
+#        - Testing implications
+#        - Validation requirements
 
-    IMPORTANT: Ensure comprehensive coverage of all
-    relevant WCAG 2.2 success criteria.
-  expected_output: >
-    Detailed JSON mapping containing:
-    - WCAG criterion references
-    - Impact assessments
-    - Technical details
-    - Documentation links
-  agent: wcag_checkpoints
-  context:
-    - analyze_wcag_structure
+#     IMPORTANT: Ensure comprehensive coverage of all
+#     relevant WCAG 2.2 success criteria.
+#   expected_output: >
+#     Detailed JSON mapping containing:
+#     - WCAG criterion references
+#     - Impact assessments
+#     - Technical details
+#     - Documentation links
+#   agent: wcag_checkpoints
+#   context:
+#     - analyze_wcag_structure
 
 # Lösungsentwicklung und Validierung
-develop_remediation:
+# develop_remediation:
+#   description: >
+#     Create detailed remediation guidance for identified issues in {url}.
+
+#     Required Components:
+#     1. Technical Solutions:
+#        - Step-by-step fixes
+#        - Code examples
+#        - Implementation guidance
+#        - Testing procedures
+
+#     2. Best Practices:
+#        - Recommended approaches
+#        - Alternative solutions
+#        - Prevention strategies
+#        - Maintenance guidance
+
+#     3. Testing Guidelines:
+#        - Validation steps
+#        - Test scenarios
+#        - Expected outcomes
+#        - Success criteria
+
+#     4. Documentation:
+#        - Clear instructions
+#        - Technical requirements
+#        - Resource references
+#        - Support information
+
+#     IMPORTANT: Provide practical, implementable solutions
+#     with clear validation steps.
+#   expected_output: >
+#     Comprehensive JSON remediation guide with:
+#     - Detailed solutions
+#     - Implementation steps
+#     - Testing procedures
+#     - Documentation
+#   agent: remediation_specialist
+#   context:
+#     - map_wcag_criteria
+
+# validate_results:
+#   description: >
+#     Review and validate all analysis results and remediation plans for {url}.
+
+#     Validation Requirements:
+#     1. Completeness Check:
+#        - Test coverage
+#        - WCAG mapping accuracy
+#        - Solution completeness
+#        - Documentation quality
+
+#     2. Quality Assurance:
+#        - Technical accuracy
+#        - Implementation viability
+#        - Testing thoroughness
+#        - Documentation clarity
+
+#     3. Standards Compliance:
+#        - WCAG 2.2 alignment
+#        - Best practices adherence
+#        - Testing methodology
+#        - Documentation standards
+
+#     4. Final Review:
+#        - Overall assessment
+#        - Gap analysis
+#        - Quality metrics
+#        - Improvement recommendations
+
+#     IMPORTANT: Ensure comprehensive validation of all
+#     aspects of the accessibility analysis.
+#   expected_output: >
+#     Final validation report containing:
+#     - Quality assessment
+#     - Coverage analysis
+#     - Improvement recommendations
+#     - Sign-off status
+#   agent: compliance_controller
+#   context:
+#     - develop_remediation
+
+report_generation_task:
   description: >
-    Create detailed remediation guidance for identified issues in {url}.
+    Generate a comprehensive accessibility report for {url} based on the test results 
+    and evidence provided by the technical analysis, visual testing, and Pa11y 
+    integration agents.
 
-    Required Components:
-    1. Technical Solutions:
-       - Step-by-step fixes
-       - Code examples
-       - Implementation guidance
-       - Testing procedures
+    Create the following sections:
 
-    2. Best Practices:
-       - Recommended approaches
-       - Alternative solutions
-       - Prevention strategies
-       - Maintenance guidance
+    1. Executive Summary
+       - Overall compliance status
+       - Key findings summary
+       - Critical issues overview
+       - Business impact assessment
+       - High-level recommendations
 
-    3. Testing Guidelines:
-       - Validation steps
-       - Test scenarios
-       - Expected outcomes
-       - Success criteria
+    2. Technical Analysis
+       Categorize all findings as:
+       - Critical Issues (immediate action required)
+         * Blocking accessibility problems
+         * Legal compliance risks
+         * Major user impact
+       - Major Issues (fix within 3 months)
+         * Significant accessibility barriers
+         * Important WCAG violations
+         * Moderate user impact
+       - Minor Issues (fix within 6 months)
+         * Minor accessibility concerns
+         * Small WCAG violations
+         * Limited user impact
+       - Recommendations
+         * Suggested improvements
+         * Best practice implementations
+         * Enhancement opportunities
 
-    4. Documentation:
-       - Clear instructions
-       - Technical requirements
-       - Resource references
-       - Support information
+    For each finding include:
+    - Unique Issue ID (ACC-XXX)
+    - WCAG 2.2 criterion reference
+    - Impact severity (High/Medium/Low)
+    - Affected user groups
+    - Technical description
+    - Business impact
+    - Clear reproduction steps
+    - Provided evidence references
+    - Detailed remediation instructions
 
-    IMPORTANT: Provide practical, implementable solutions
-    with clear validation steps.
+    3. Evidence Documentation
+       - Organize all screenshots with highlighted issues
+       - Format code snippets with error highlights
+       - Include step-by-step reproduction paths
+       - Add tool output documentation
+
+    4. Compliance Matrix
+       Create a detailed matrix showing:
+       - All WCAG 2.2 criteria (A, AA, AAA)
+       - Current status (Pass/Fail/N/A)
+       - Related findings references
+       - Compliance notes
+       - Retest requirements
+
+    5. Action Plan
+       - Prioritized issue list
+       - Effort estimation per issue
+       - Implementation timeline
+       - Technical solution recommendations
+       - Resource requirements
+       - Progress tracking metrics
+
+    Make sure to maintain consistent formatting throughout the report
+    and include clear cross-references between sections.
+
+    Save all report files in the following structure under output/results/:
+    - report.md             # Main report document
+    - evidence/            # Folder containing all evidence
+      - screenshots/       # Screenshots with highlights
+      - code-snippets/    # Code examples
+      - tool-output/      # Raw tool outputs
+    - matrices/           # Compliance and tracking matrices
+    - action-plan/        # Detailed action plans and timelines
+  
   expected_output: >
-    Comprehensive JSON remediation guide with:
-    - Detailed solutions
-    - Implementation steps
-    - Testing procedures
-    - Documentation
-  agent: remediation_specialist
-  context:
-    - map_wcag_criteria
-
-validate_results:
-  description: >
-    Review and validate all analysis results and remediation plans for {url}.
-
-    Validation Requirements:
-    1. Completeness Check:
-       - Test coverage
-       - WCAG mapping accuracy
-       - Solution completeness
-       - Documentation quality
-
-    2. Quality Assurance:
-       - Technical accuracy
-       - Implementation viability
-       - Testing thoroughness
-       - Documentation clarity
-
-    3. Standards Compliance:
-       - WCAG 2.2 alignment
-       - Best practices adherence
-       - Testing methodology
-       - Documentation standards
-
-    4. Final Review:
-       - Overall assessment
-       - Gap analysis
-       - Quality metrics
-       - Improvement recommendations
-
-    IMPORTANT: Ensure comprehensive validation of all
-    aspects of the accessibility analysis.
-  expected_output: >
-    Final validation report containing:
-    - Quality assessment
-    - Coverage analysis
-    - Improvement recommendations
-    - Sign-off status
-  agent: compliance_controller
-  context:
-    - develop_remediation
+    A fully formatted markdown report and associated files stored in output/results/ containing:
+    - All required sections properly structured in report.md
+    - Organized evidence folders with proper documentation
+    - Comprehensive compliance matrices
+    - Detailed action plans
+    - Cross-referenced findings with proper file paths
+    - Properly linked evidence with relative paths
+    
+    The report must follow proper markdown formatting without code blocks 
+    and maintain a professional, corporate documentation style.
+    All file paths must be relative to ensure portability of the report package.
+  agent: report_specialist
+  output_file: "output/results/report.md"

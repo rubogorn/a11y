@@ -11,6 +11,8 @@ import shutil
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 import threading
 import socket
+import os
+from dotenv import load_dotenv
 
 from .crew import WCAGTestingCrew
 from .logging_config import get_logger
@@ -19,6 +21,15 @@ from datetime import datetime, timezone
 import json
 import aiofiles
 from typing import Dict, Any
+
+# Must precede any llm module imports
+
+# Load environment variables from .env file
+load_dotenv()
+
+# Get API key from environment variables
+from langtrace_python_sdk import langtrace
+langtrace.init(api_key=os.getenv('LANGTRACE_API_KEY'))
 
 class WCAGTestingCLI:
     """Command Line Interface for WCAG Testing"""
