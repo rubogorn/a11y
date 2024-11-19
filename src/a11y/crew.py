@@ -32,26 +32,26 @@ class WCAGTestingCrew:
         # Make sure the results directory exists
         self.results_path.mkdir(parents=True, exist_ok=True)
 
-    @agent
-    def compliance_controller(self) -> Agent:
-        return Agent(
-            config=self.agents_config['compliance_controller'],
-            verbose=True,
-            memory=True,
-            allow_delegation=True,
-            max_rpm=30,
-            max_iter=5,
-            respect_context_window=True,
-            use_system_prompt=True,
-            max_retry_limit=2,
-            cache=True,
-            llm='gpt-4o-mini',
-            tools=[FileReadTool()]
-            # tools:
-            #   - BrowserbaseWebLoader  # For initial site analysis
-            #   - DirectoryReader      # For managing test artifacts
-            #   - FileHandler         # For handling test results and reports
-        )
+    # @agent
+    # def compliance_controller(self) -> Agent:
+    #     return Agent(
+    #         config=self.agents_config['compliance_controller'],
+    #         verbose=True,
+    #         memory=True,
+    #         allow_delegation=True,
+    #         max_rpm=30,
+    #         max_iter=5,
+    #         respect_context_window=True,
+    #         use_system_prompt=True,
+    #         max_retry_limit=2,
+    #         cache=True,
+    #         llm='gpt-4o-mini',
+    #         tools=[FileReadTool()]
+    #         # tools:
+    #         #   - BrowserbaseWebLoader  # For initial site analysis
+    #         #   - DirectoryReader      # For managing test artifacts
+    #         #   - FileHandler         # For handling test results and reports
+    #    )
 
     # @agent
     # def wcag_checkpoints(self) -> Agent:
@@ -63,25 +63,28 @@ class WCAGTestingCrew:
     def axe_core_specialist(self) -> Agent:
         return Agent(
             config=self.agents_config['axe_core_specialist'],
-            # tools=[AxeCoreTool()],
+            tools=[
+                AxeCoreTool(),
+                FileReadTool()
+            ],
             verbose=True,
             memory=True,
             allow_delegation=False,
-            max_rpm=30,
-            max_iter=25,
+            max_rpm=3,
+            max_iter=2,
             respect_context_window=True,
             use_system_prompt=True,
             max_retry_limit=2,
             cache=True
         )
 
-    @agent
-    def accessibility_analyzer(self) -> Agent:
-        return Agent(
-            config=self.agents_config['accessibility_analyzer'],
-            tools=[SeleniumScrapingTool(website_url='https://shapeofnew.de')],
-            verbose=True
-        )
+    # @agent
+    # def accessibility_analyzer(self) -> Agent:
+    #     return Agent(
+    #         config=self.agents_config['accessibility_analyzer'],
+    #         tools=[SeleniumScrapingTool(website_url='https://shapeofnew.de')],
+    #         verbose=True
+    #     )
 
     # @agent
     # def pa11y_analyzer(self) -> Agent:
@@ -104,17 +107,18 @@ class WCAGTestingCrew:
     #         verbose=True
     #     )
 
-    @agent
-    def report_specialist(self) -> Agent:
-        return Agent(
-            config=self.agents_config['report_specialist'],
-            verbose=True
-        )
+    # @agent
+    # def report_specialist(self) -> Agent:
+    #     return Agent(
+    #         config=self.agents_config['report_specialist'],
+    #         verbose=True
+    #     )
     
     @task
     def run_axe_tests(self) -> Task:
         return Task(
-            config=self.tasks_config['axe_core_testing_task']
+            config=self.tasks_config['axe_core_testing_task'],
+            verbose=True
         )
 
     # @task
@@ -167,11 +171,11 @@ class WCAGTestingCrew:
     #         config=self.tasks_config['validate_results']
     #     )
 
-    @task
-    def report_generation_task(self) -> Task:
-        return Task(
-            config=self.tasks_config['report_generation_task']
-        )
+    # @task
+    # def report_generation_task(self) -> Task:
+    #     return Task(
+    #         config=self.tasks_config['report_generation_task']
+    #     )
 
     @crew
     def testing_crew(self) -> Crew:
@@ -179,9 +183,9 @@ class WCAGTestingCrew:
 
         return Crew(
             agents=[
-                self.accessibility_analyzer(),
+                #self.accessibility_analyzer(),
                 self.axe_core_specialist(),
-                self.report_specialist()
+                #self.report_specialist()
             ],
             tasks=self.tasks,
             # manager_agent=self.compliance_controller(),

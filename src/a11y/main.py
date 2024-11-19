@@ -28,8 +28,8 @@ from typing import Dict, Any
 load_dotenv()
 
 # Get API key from environment variables
-from langtrace_python_sdk import langtrace
-langtrace.init(api_key=os.getenv('LANGTRACE_API_KEY'))
+# from langtrace_python_sdk import langtrace
+# langtrace.init(api_key=os.getenv('LANGTRACE_API_KEY'))
 
 class WCAGTestingCLI:
     """Command Line Interface for WCAG Testing"""
@@ -50,7 +50,7 @@ class WCAGTestingCLI:
         # Initialize components
         try:
             self.crew = WCAGTestingCrew()
-            self.report_generator = ReportGenerator()
+            #self.report_generator = ReportGenerator()
             self.logger.info("All components initialized successfully")
         except Exception as e:
             self.logger.error(f"Failed to initialize components: {e}")
@@ -340,13 +340,13 @@ class WCAGTestingCLI:
                 return
 
             # Generate and save final report
-            output_dir = await self.report_generator.save_results(
-                url=url,
-                crew_results=crew_results
-            )
+            # output_dir = await self.report_generator.save_results(
+            #     url=url,
+            #     crew_results=crew_results
+            # )
             
-            self.logger.info(f"All results saved to: {output_dir}")
-            print(f"\nResults saved to: {output_dir}")
+            # self.logger.info(f"All results saved to: {output_dir}")
+            # print(f"\nResults saved to: {output_dir}")
 
         except Exception as e:
             self.logger.error(f"Test execution failed: {str(e)}")

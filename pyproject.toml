@@ -17,7 +17,13 @@ dependencies = [
     "aiofiles>=24.1.0",
     "langtrace-python-sdk",
     "browserbase>=0.1.0",
+    "nodejs>=0.1.1",
 ]
+
+[tool.nodejs.dependencies]
+"@axe-core/cli" = "^4.7.3"
+"chromedriver" = "latest"
+"puppeteer" = "latest"
 
 [project.scripts]
 run_crew = "src.a11y.main:main"

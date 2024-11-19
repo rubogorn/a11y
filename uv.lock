@@ -19,6 +19,7 @@ dependencies = [
     { name = "crewai", extra = ["tools"] },
     { name = "crewai-tools" },
     { name = "langtrace-python-sdk" },
+    { name = "nodejs" },
     { name = "playwright" },
     { name = "pydantic" },
     { name = "requests" },
@@ -33,6 +34,7 @@ requires-dist = [
     { name = "crewai", extras = ["tools"], specifier = ">=0.12.1" },
     { name = "crewai-tools", specifier = ">=0.13.4" },
     { name = "langtrace-python-sdk" },
+    { name = "nodejs", specifier = ">=0.1.1" },
     { name = "playwright", specifier = ">=1.40.0" },
     { name = "pydantic", specifier = ">=2.5.2" },
     { name = "requests", specifier = ">=2.31.0" },
@@ -2261,6 +2263,15 @@ wheels = [
 ]
 
 [[package]]
+name = "nodejs"
+version = "0.1.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "optional-django" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/eb/ee/97ee0b973d072702eb2927c0eb90647cc0e4598663ed8e591c1ca4120dd9/nodejs-0.1.1.tar.gz", hash = "sha256:4c585fecc51a91b151bbc6dd01c0fb8d93f29f897a8298009205b59b80b52933", size = 2325 }
+
+[[package]]
 name = "numpy"
 version = "1.26.4"
 source = { registry = "https://pypi.org/simple" }
@@ -2527,6 +2538,12 @@ sdist = { url = "https://files.pythonhosted.org/packages/c4/1f/f2a734beb7d6c5174
 wheels = [
     { url = "https://files.pythonhosted.org/packages/74/f6/911f49a8ebac7986d839bbfd9fd813db00e8305878f7d04cd9a0747021e0/opentelemetry_util_http-0.49b1-py3-none-any.whl", hash = "sha256:0290b942f7888b6310df6803e52e12f4043b8f224db0659f62dc7b70059eb94f", size = 6945 },
 ]
+
+[[package]]
+name = "optional-django"
+version = "0.1.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/da/9e/b9b6a3854c613da94d695a2a52ca70ad1f0c65337c1b6e37f5f447964d19/optional-django-0.1.0.tar.gz", hash = "sha256:77d6b9fb74bda30583e1af4683a39e0af725cea6003252bba75838f4939326c5", size = 9530 }
 
 [[package]]
 name = "orjson"
