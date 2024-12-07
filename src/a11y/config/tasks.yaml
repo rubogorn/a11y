@@ -365,7 +365,7 @@ report_generation_task:
          * Blocking accessibility problems
          * Legal compliance risks
          * Major user impact
-       - Major Issues (fix within 3 months)
+       - Major Issues x
          * Significant accessibility barriers
          * Important WCAG violations
          * Moderate user impact
