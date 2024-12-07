@@ -5,6 +5,7 @@ from datetime import datetime
 import sys
 import inspect
 from typing import Optional
+import os
 
 class ColorFormatter(logging.Formatter):
     """Custom formatter adding colors to levelnames and improved formatting"""
@@ -22,10 +23,10 @@ class ColorFormatter(logging.Formatter):
     def __init__(self, include_timestamp=True):
         self.include_timestamp = include_timestamp
         if include_timestamp:
-            fmt = '%(asctime)s - %(filename)s - %(levelname)s - %(message)s'
+            fmt = '%(asctime)s - %(thread)d - %(filename)s-%(funcName)s:%(lineno)d - %(levelname)s: %(message)s'
             datefmt = '%Y-%m-%d %H:%M:%S'
         else:
-            fmt = '%(filename)s - %(levelname)s: %(message)s'
+            fmt = '%(levelname)s: %(message)s'
             datefmt = None
         super().__init__(fmt=fmt, datefmt=datefmt)
 
@@ -51,165 +52,137 @@ class ColorFormatter(logging.Formatter):
 
         return formatted_message
 
-class LogPathManager:
-    """Manages log file paths and directory creation"""
-    
-    def __init__(self, base_dir: str = "output/results/logs"):
-        self.base_path = Path(base_dir)
-        self._ensure_log_directory()
-
-    def _ensure_log_directory(self) -> None:
-        """Ensure the log directory exists"""
-        try:
-            self.base_path.mkdir(parents=True, exist_ok=True)
-        except Exception as e:
-            sys.stderr.write(f"Failed to create log directory: {e}\n")
-            sys.exit(1)
-
-    def get_log_file_path(self, logger_name: str) -> Path:
-        """Generate a log file path with timestamp"""
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        return self.base_path / f"{logger_name}_{timestamp}.log"
-
-def setup_logger(
-    name: str,
-    log_dir: str = None,
-    console_level: int = logging.INFO,
-    file_level: int = logging.DEBUG,
-    max_bytes: int = 10485760,  # 10MB
-    backup_count: int = 5
-) -> logging.Logger:
-    """
-    Set up and configure a logger with both console and file handlers
+def get_logger(name: str, log_dir: str = 'output/logs') -> logging.Logger:
+    """Configure and return a logger that writes to both console and file
     
     Args:
-        name: Logger name
-        log_dir: Directory for log files (optional)
-        console_level: Logging level for console output
-        file_level: Logging level for file output
-        max_bytes: Maximum size of each log file
-        backup_count: Number of backup files to keep
+        name: Name of the logger
+        log_dir: Directory to store log files
         
     Returns:
         Configured logger instance
     """
-    logger = logging.getLogger(name)
-    logger.setLevel(min(console_level, file_level))
-
-    # Remove any existing handlers
-    logger.handlers = []
-
-    # Console Handler
-    console_handler = logging.StreamHandler()
-    console_handler.setLevel(console_level)
-    console_formatter = ColorFormatter(include_timestamp=False)
-    console_handler.setFormatter(console_formatter)
-    logger.addHandler(console_handler)
-
-    # File Handler (if log_dir is provided)
-    if log_dir:
-        try:
-            path_manager = LogPathManager(log_dir)
-            log_file = path_manager.get_log_file_path(name)
-            
-            file_handler = logging.handlers.RotatingFileHandler(
-                str(log_file),
-                maxBytes=max_bytes,
-                backupCount=backup_count,
-                encoding='utf-8'
-            )
-            file_handler.setLevel(file_level)
-            
-            file_formatter = ColorFormatter(include_timestamp=True)
-            file_handler.setFormatter(file_formatter)
-            logger.addHandler(file_handler)
-            
-        except Exception as e:
-            logger.error(f"Failed to set up file logging: {e}")
-
-    return logger
-
-def ui_message(message: str, level: str = "info") -> None:
-    """
-    Log a message with UI formatting
+    # Create logs directory if it doesn't exist
+    log_path = Path(log_dir)
+    log_path.mkdir(parents=True, exist_ok=True)
     
-    Args:
-        message: Message to log
-        level: Logging level (default: info)
-    """
-    caller_frame = inspect.currentframe().f_back
-    module_name = inspect.getmodule(caller_frame).__name__
-    logger = logging.getLogger(module_name)
+    # Create timestamp for log file
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    log_file = log_path / f"{name}_{timestamp}.log"
     
-    # Convert string level to numeric logging level
-    numeric_level = getattr(logging, level.upper(), logging.INFO)
-    
-    # Add simple_message flag to indicate UI formatting
-    record = logging.makeLogRecord({
-        'msg': message,
-        'levelno': numeric_level,
-        'levelname': logging.getLevelName(numeric_level),
-        'pathname': caller_frame.f_code.co_filename,
-        'lineno': caller_frame.f_lineno,
-        'args': (),
-        'exc_info': None,
-        'name': module_name,
-        'simple_message': True  # Add this flag
-    })
-    
-    logger.handle(record)
-
-def get_logger(name: str, log_dir: Optional[str] = None) -> logging.Logger:
+    # Create logger
     logger = logging.getLogger(name)
     
-    # Prevent adding handlers if they already exist
+    # If logger already has handlers, return it
     if logger.handlers:
         return logger
-        
-    # Set base logging level
-    logger.setLevel(logging.INFO)
     
-    # Create formatters with different formats for console and file
-    console_formatter = ColorFormatter('%(filename)s - %(levelname)s: %(message)s')  # Simplified console output
-    file_formatter = ColorFormatter('%(asctime)s - %(thread)d - %(filename)s-%(funcName)s:%(lineno)d - %(levelname)s: %(message)s')
+    logger.setLevel(logging.DEBUG)
     
-    # Console handler
-    console_handler = logging.StreamHandler()
-    console_handler.setFormatter(console_formatter)
+    # Create console handler with color formatting
+    console_handler = logging.StreamHandler(sys.__stdout__)  # Use sys.__stdout__ to avoid recursion
+    console_handler.setFormatter(ColorFormatter(include_timestamp=False))
+    console_handler.setLevel(logging.INFO)
     logger.addHandler(console_handler)
     
-    # File handler (optional)
-    if log_dir:
-        log_dir = Path(log_dir)
-        log_dir.mkdir(parents=True, exist_ok=True)
-        log_file = log_dir / f"{datetime.now().strftime('%Y-%m-%d')}.log"
-        file_handler = logging.FileHandler(log_file)
-        file_handler.setFormatter(file_formatter)
-        logger.addHandler(file_handler)
+    # Create file handler with detailed formatting
+    file_handler = logging.FileHandler(str(log_file), encoding='utf-8')
+    file_handler.setFormatter(ColorFormatter(include_timestamp=True))
+    file_handler.setLevel(logging.DEBUG)
+    logger.addHandler(file_handler)
     
-    # Prevent propagation to avoid duplicate logs
-    logger.propagate = False
+    # Log initial message
+    logger.info(f"Logging initialized. Log file: {log_file}")
     
     return logger
-def configure_root_logger(
-    log_dir: str = "output/results/logs",
-    console_level: int = logging.INFO,
-    file_level: int = logging.DEBUG
-) -> None:
-    """
-    Configure the root logger with both file and console handlers
+
+def configure_root_logger(log_dir: str = "output/logs") -> None:
+    """Configure the root logger to capture all output
     
     Args:
         log_dir: Directory for log files
-        console_level: Logging level for console output
-        file_level: Logging level for file output
     """
-    root_logger = get_logger(
-        'root',
-        log_dir=log_dir,
-        console_level=console_level,
-        file_level=file_level
-    )
+    # Create logs directory if it doesn't exist
+    log_path = Path(log_dir)
+    log_path.mkdir(parents=True, exist_ok=True)
     
-    # Set as root logger
-    logging.root = root_logger
+    # Create timestamp for log file
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    log_file = log_path / f"root_{timestamp}.log"
+    
+    # Configure root logger
+    root_logger = logging.getLogger()
+    root_logger.setLevel(logging.DEBUG)
+    
+    # Create console handler with color formatting
+    console_handler = logging.StreamHandler(sys.__stdout__)  # Use sys.__stdout__ to avoid recursion
+    console_handler.setFormatter(ColorFormatter(include_timestamp=False))
+    console_handler.setLevel(logging.INFO)
+    root_logger.addHandler(console_handler)
+    
+    # Create file handler with detailed formatting
+    file_handler = logging.FileHandler(str(log_file), encoding='utf-8')
+    file_handler.setFormatter(ColorFormatter(include_timestamp=True))
+    file_handler.setLevel(logging.DEBUG)
+    root_logger.addHandler(file_handler)
+    
+    # Log initial message
+    root_logger.info(f"Root logging initialized. Log file: {log_file}")
+
+def log_command_output(logger: logging.Logger, command: str, output: str, error: str = None):
+    """Log command execution output
+    
+    Args:
+        logger: Logger instance
+        command: Command that was executed
+        output: Command output
+        error: Error output (if any)
+    """
+    logger.info(f"Command executed: {command}")
+    if output:
+        logger.info(f"Command output:\n{output}")
+    if error:
+        logger.error(f"Command error:\n{error}")
+
+def log_file_operation(logger: logging.Logger, operation: str, path: Path, success: bool = True, error: Exception = None):
+    """Log file operations with detailed information
+    
+    Args:
+        logger: Logger instance
+        operation: Type of operation (create, read, write, delete)
+        path: Path of the file/directory
+        success: Whether the operation was successful
+        error: Exception if operation failed
+    """
+    if success:
+        logger.debug(f"File operation - {operation}: {path}")
+    else:
+        logger.error(f"File operation failed - {operation}: {path}")
+        if error:
+            logger.error(f"Error details: {str(error)}")
+
+def log_directory_contents(logger: logging.Logger, path: Path, max_depth: int = 3):
+    """Log the contents of a directory
+    
+    Args:
+        logger: Logger instance
+        path: Directory path to log
+        max_depth: Maximum depth for recursive logging
+    """
+    def _log_dir_contents(current_path: Path, current_depth: int = 0):
+        if current_depth > max_depth:
+            return
+            
+        indent = "  " * current_depth
+        try:
+            for item in current_path.iterdir():
+                if item.is_file():
+                    logger.debug(f"{indent}File: {item.name}")
+                elif item.is_dir():
+                    logger.debug(f"{indent}Dir:  {item.name}/")
+                    _log_dir_contents(item, current_depth + 1)
+        except Exception as e:
+            logger.error(f"Error reading directory {current_path}: {str(e)}")
+    
+    logger.info(f"Directory contents for: {path}")
+    _log_dir_contents(path)

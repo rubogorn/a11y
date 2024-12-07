@@ -71,6 +71,15 @@ axe_core_specialist:
     you to effectively interpret test results and provide actionable insights. 
     You have extensive experience in analyzing Axe Core outputs and translating 
     technical findings into clear, actionable recommendations."
+  verbose: false
+  memory: true
+  allow_delegation: false
+  max_rpm: 3
+  max_iter: 2
+  respect_context_window: true
+  use_system_prompt: true
+  max_retry_limit: 2
+  cache: true
 
 # lighthouse_analyzer:
 #   role: "Lighthouse Accessibility Test Specialist"
@@ -80,9 +89,36 @@ axe_core_specialist:
 #   allow_delegation: false
 
 accessibility_analyzer:
-  role: "Static Content and Structure Analyzer"
-  goal: "Analyze content and structure for WCAG 2.2 compliance"
-  backstory: "You specialize in analyzing web content and structure for accessibility issues."
+  role: "Automated Accessibility Test Analyzer"
+  goal: "Execute and analyze automated accessibility:
+    1. Test Execution:
+       - Load and analyze web pages using BrowserbaseLoadTool
+       - Extract DOM structure and content
+       - Identify accessibility patterns
+       - Generate detailed analysis reports
+
+    2. Results Analysis:
+       - Evaluate page structure and content
+       - Analyze HTML semantics
+       - Review ARIA implementations
+       - Identify accessibility issues
+
+    3. Documentation:
+       - Document structural findings
+       - Record content accessibility issues
+       - Create detailed analysis reports
+       - Generate recommendations
+
+    4. Quality Assurance:
+       - Verify content extraction
+       - Validate structural analysis
+       - Ensure comprehensive coverage
+       - Cross-reference findings"
+  backstory: "As an expert in automated accessibility testing, you specialize in 
+    using BrowserbaseLoadTool to analyze web content and structure for accessibility 
+    issues. Your deep understanding of web accessibility standards and DOM analysis 
+    allows you to effectively identify potential barriers and provide actionable 
+    recommendations."
   verbose: true
   memory: true
   allow_delegation: false

@@ -13,55 +13,55 @@
 #     and analysis requirements.
 #   agent: compliance_controller
 
-# init_testing: 
-#    description: >
-#       Coordinate and oversee a comprehensive WCAG 2.2 accessibility test for {url}.
+manage_testing_workflow: 
+   description: >
+      Coordinate and oversee a comprehensive WCAG 2.2 accessibility test for {url}.
       
-#       Follow these steps:
-#       1. Initial Assessment
-#          - Validate the URL accessibility
-#          - Identify key pages and components to test
-#          - Document the website's technology stack
+      Follow these steps:
+      1. Initial Assessment
+         - Validate the URL accessibility
+         - Identify key pages and components to test
+         - Document the website's technology stack
       
-#       2. Test Planning
-#          - Create a test strategy covering all WCAG 2.2 criteria
-#          - Assign specific test areas to specialized agents:
-#             * Technical Analysis Agent for code review
-#             * Visual Testing Agent for design compliance
-#             * Pa11y Integration Agent for automated checks
+      2. Test Planning
+         - Create a test strategy covering all WCAG 2.2 criteria
+         - Assign specific test areas to specialized agents:
+            * Technical Analysis Agent for code review
+            * Visual Testing Agent for design compliance
+            * Pa11y Integration Agent for automated checks
       
-#       3. Test Execution
-#          - Monitor the progress of each agent
-#          - Review preliminary results
-#          - Identify any gaps in testing
-#          - Coordinate with human reviewers when needed
+      3. Test Execution
+         - Monitor the progress of each agent
+         - Review preliminary results
+         - Identify any gaps in testing
+         - Coordinate with human reviewers when needed
       
-#       4. Results Compilation
-#          - Cross-reference findings from all agents
-#          - Validate test evidence and completeness
-#          - Prioritize issues based on severity
-#          - Verify solution recommendations
+      4. Results Compilation
+         - Cross-reference findings from all agents
+         - Validate test evidence and completeness
+         - Prioritize issues based on severity
+         - Verify solution recommendations
       
-#       5. Report Finalization
-#          - Ensure comprehensive coverage of all WCAG criteria
-#          - Verify proper documentation and evidence
-#          - Review technical accuracy of findings
-#          - Prepare final recommendations
+      5. Report Finalization
+         - Ensure comprehensive coverage of all WCAG criteria
+         - Verify proper documentation and evidence
+         - Review technical accuracy of findings
+         - Prepare final recommendations
       
-#       Make sure to maintain clear communication and coordinate effectively
-#       between all testing agents throughout the process.
-#    expected_output: >
-#       A comprehensive accessibility test report containing:
-#       - Executive summary of findings
-#       - Detailed test results for each WCAG 2.2 criterion
-#       - Evidence documentation (screenshots, code snippets)
-#       - Issue severity classification
-#       - Actionable recommendations for improvements
-#       - Test methodology documentation
+      Make sure to maintain clear communication and coordinate effectively
+      between all testing agents throughout the process.
+   expected_output: >
+      A comprehensive accessibility test report containing:
+      - Executive summary of findings
+      - Detailed test results for each WCAG 2.2 criterion
+      - Evidence documentation (screenshots, code snippets)
+      - Issue severity classification
+      - Actionable recommendations for improvements
+      - Test methodology documentation
       
-#       The report should be formatted in markdown and include all necessary 
-#       sections following the corporate reporting standards.
-#    agent: compliance_controller
+      The report should be formatted in markdown and include all necessary 
+      sections following the corporate reporting standards.
+   agent: compliance_controller
 
 # verify_tool_availability:
 #   description: >
@@ -175,49 +175,49 @@ axe_core_testing_task:
 #     - verify_tool_availability
 
 # Struktur- und Inhaltsanalyse
-# analyze_wcag_structure:
-#   description: >
-#     Analyze accessibility structure and provide WCAG 2.2 mappings for {url}.
+analyze_wcag_structure:
+  description: >
+    Analyze accessibility structure and provide WCAG 2.2 mappings for {url}.
 
-#     Required Analysis:
-#     1. Document Structure:
-#        - Semantic HTML usage
-#        - Heading hierarchy
-#        - Landmark regions
-#        - ARIA implementation
+    Required Analysis:
+    1. Document Structure:
+       - Semantic HTML usage
+       - Heading hierarchy
+       - Landmark regions
+       - ARIA implementation
 
-#     2. Content Relationships:
-#        - Information hierarchy
-#        - Content grouping
-#        - Related elements
-#        - Context associations
+    2. Content Relationships:
+       - Information hierarchy
+       - Content grouping
+       - Related elements
+       - Context associations
 
-#     3. Interactive Elements:
-#        - Form controls
-#        - Navigation mechanisms
-#        - Custom widgets
-#        - Focus management
+    3. Interactive Elements:
+       - Form controls
+       - Navigation mechanisms
+       - Custom widgets
+       - Focus management
 
-#     4. Technical Implementation:
-#        - HTML validation
-#        - ARIA patterns
-#        - Event handling
-#        - State management
+    4. Technical Implementation:
+       - HTML validation
+       - ARIA patterns
+       - Event handling
+       - State management
 
-#     IMPORTANT: Provide detailed technical analysis with
-#     specific WCAG 2.2 criterion references.
-#   expected_output: >
-#     Structured JSON report containing:
-#     - Technical findings
-#     - WCAG mappings
-#     - Implementation details
-#     - Severity assessments
-#   agent: accessibility_analyzer
-#   #context:
-#     #- run_pa11y_tests
-#     #- run_axe_tests
-#     #- run_lighthouse_tests
-#   output_file: "output/results/tool_results/analyze_wcag_structure-report.json"
+    IMPORTANT: Provide detailed technical analysis with
+    specific WCAG 2.2 criterion references.
+  expected_output: >
+    Structured JSON report containing:
+    - Technical findings
+    - WCAG mappings
+    - Implementation details
+    - Severity assessments
+  agent: accessibility_analyzer
+  #context:
+    #- run_pa11y_tests
+    #- run_axe_tests
+    #- run_lighthouse_tests
+  output_file: "output/results/tool_results/analyze_wcag_structure-report.json"
 
 # WCAG Mapping und Analyse
 # map_wcag_criteria:
@@ -344,96 +344,96 @@ axe_core_testing_task:
 #   context:
 #     - develop_remediation
 
-# report_generation_task:
-#   description: >
-#     Generate a comprehensive accessibility report for {url} based on the test results 
-#     and evidence provided by the technical analysis, visual testing, and Pa11y 
-#     integration agents.
+report_generation_task:
+  description: >
+    Generate a comprehensive accessibility report for {url} based on the test results 
+    and evidence provided by the technical analysis, visual testing, and Pa11y 
+    integration agents.
 
-#     Create the following sections:
+    Create the following sections:
 
-#     1. Executive Summary
-#        - Overall compliance status
-#        - Key findings summary
-#        - Critical issues overview
-#        - Business impact assessment
-#        - High-level recommendations
+    1. Executive Summary
+       - Overall compliance status
+       - Key findings summary
+       - Critical issues overview
+       - Business impact assessment
+       - High-level recommendations
 
-#     2. Technical Analysis
-#        Categorize all findings as:
-#        - Critical Issues (immediate action required)
-#          * Blocking accessibility problems
-#          * Legal compliance risks
-#          * Major user impact
-#        - Major Issues (fix within 3 months)
-#          * Significant accessibility barriers
-#          * Important WCAG violations
-#          * Moderate user impact
-#        - Minor Issues (fix within 6 months)
-#          * Minor accessibility concerns
-#          * Small WCAG violations
-#          * Limited user impact
-#        - Recommendations
-#          * Suggested improvements
-#          * Best practice implementations
-#          * Enhancement opportunities
+    2. Technical Analysis
+       Categorize all findings as:
+       - Critical Issues (immediate action required)
+         * Blocking accessibility problems
+         * Legal compliance risks
+         * Major user impact
+       - Major Issues (fix within 3 months)
+         * Significant accessibility barriers
+         * Important WCAG violations
+         * Moderate user impact
+       - Minor Issues (fix within 6 months)
+         * Minor accessibility concerns
+         * Small WCAG violations
+         * Limited user impact
+       - Recommendations
+         * Suggested improvements
+         * Best practice implementations
+         * Enhancement opportunities
 
-#     For each finding include:
-#     - Unique Issue ID (ACC-XXX)
-#     - WCAG 2.2 criterion reference
-#     - Impact severity (High/Medium/Low)
-#     - Affected user groups
-#     - Technical description
-#     - Business impact
-#     - Clear reproduction steps
-#     - Provided evidence references
-#     - Detailed remediation instructions
+    For each finding include:
+    - Unique Issue ID (ACC-XXX)
+    - WCAG 2.2 criterion reference
+    - Impact severity (High/Medium/Low)
+    - Affected user groups
+    - Technical description
+    - Business impact
+    - Clear reproduction steps
+    - Provided evidence references
+    - Detailed remediation instructions
 
-#     3. Evidence Documentation
-#        - Organize all screenshots with highlighted issues
-#        - Format code snippets with error highlights
-#        - Include step-by-step reproduction paths
-#        - Add tool output documentation
+    3. Evidence Documentation
+       - Organize all screenshots with highlighted issues
+       - Format code snippets with error highlights
+       - Include step-by-step reproduction paths
+       - Add tool output documentation
 
-#     4. Compliance Matrix
-#        Create a detailed matrix showing:
-#        - All WCAG 2.2 criteria (A, AA, AAA)
-#        - Current status (Pass/Fail/N/A)
-#        - Related findings references
-#        - Compliance notes
-#        - Retest requirements
+    4. Compliance Matrix
+       Create a detailed matrix showing:
+       - All WCAG 2.2 criteria (A, AA, AAA)
+       - Current status (Pass/Fail/N/A)
+       - Related findings references
+       - Compliance notes
+       - Retest requirements
 
-#     5. Action Plan
-#        - Prioritized issue list
-#        - Effort estimation per issue
-#        - Implementation timeline
-#        - Technical solution recommendations
-#        - Resource requirements
-#        - Progress tracking metrics
+    5. Action Plan
+       - Prioritized issue list
+       - Effort estimation per issue
+       - Implementation timeline
+       - Technical solution recommendations
+       - Resource requirements
+       - Progress tracking metrics
 
-#     Make sure to maintain consistent formatting throughout the report
-#     and include clear cross-references between sections.
+    Make sure to maintain consistent formatting throughout the report
+    and include clear cross-references between sections.
 
-#     Save all report files in the following structure under output/results/:
-#     - report.md             # Main report document
-#     - evidence/            # Folder containing all evidence
-#       - screenshots/       # Screenshots with highlights
-#       - code-snippets/    # Code examples
-#       - tool-output/      # Raw tool outputs
-#     - matrices/           # Compliance and tracking matrices
-#     - action-plan/        # Detailed action plans and timelines
+    Save all report files in the following structure under output/results/:
+    - report.md             # Main report document
+    - evidence/            # Folder containing all evidence
+      - screenshots/       # Screenshots with highlights
+      - code-snippets/    # Code examples
+      - tool-output/      # Raw tool outputs
+    - matrices/           # Compliance and tracking matrices
+    - action-plan/        # Detailed action plans and timelines
   
-#   expected_output: >
-#     A fully formatted markdown report and associated files stored in output/results/ containing:
-#     - All required sections properly structured in report.md
-#     - Organized evidence folders with proper documentation
-#     - Comprehensive compliance matrices
-#     - Detailed action plans
-#     - Cross-referenced findings with proper file paths
-#     - Properly linked evidence with relative paths
+  expected_output: >
+    A fully formatted markdown report and associated files stored in output/results/ containing:
+    - All required sections properly structured in report.md
+    - Organized evidence folders with proper documentation
+    - Comprehensive compliance matrices
+    - Detailed action plans
+    - Cross-referenced findings with proper file paths
+    - Properly linked evidence with relative paths
     
-#     The report must follow proper markdown formatting without code blocks 
-#     and maintain a professional, corporate documentation style.
-#     All file paths must be relative to ensure portability of the report package.
-#   agent: report_specialist
-#   output_file: "output/results/report.md"
+    The report must follow proper markdown formatting without code blocks 
+    and maintain a professional, corporate documentation style.
+    All file paths must be relative to ensure portability of the report package.
+  agent: report_specialist
+  output_file: "output/results/report.md"

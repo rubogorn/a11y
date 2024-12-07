@@ -16,7 +16,7 @@ dependencies = [
     { name = "aiofiles" },
     { name = "beautifulsoup4" },
     { name = "browserbase" },
-    { name = "crewai", extra = ["tools"] },
+    { name = "crewai" },
     { name = "crewai-tools" },
     { name = "langtrace-python-sdk" },
     { name = "nodejs" },
@@ -31,8 +31,8 @@ requires-dist = [
     { name = "aiofiles", specifier = ">=24.1.0" },
     { name = "beautifulsoup4", specifier = ">=4.12.2" },
     { name = "browserbase", specifier = ">=0.1.0" },
-    { name = "crewai", extras = ["tools"], specifier = ">=0.12.1" },
-    { name = "crewai-tools", specifier = ">=0.13.4" },
+    { name = "crewai", specifier = ">=0.14.0" },
+    { name = "crewai-tools", specifier = ">=0.14.0" },
     { name = "langtrace-python-sdk" },
     { name = "nodejs", specifier = ">=0.1.1" },
     { name = "playwright", specifier = ">=1.40.0" },
@@ -632,11 +632,6 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/f7/38/584389ffb7ca7bc4719438a932d99993b8e24781e81dec33908c8bdb8954/crewai-0.80.0.tar.gz", hash = "sha256:8fc10f8a0344349f5fcc431fcdd03dcb033704d402d67f9b145a6d9d099d8e42", size = 5842314 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/13/55/8caa2264c59be4c11266be1aae2b57610dcd30cd1c6f0752416589126f3b/crewai-0.80.0-py3-none-any.whl", hash = "sha256:74eb67b6de2688871c831bc617de0a839667c643c8b6b3757b3c1e849bea3ea0", size = 197680 },
-]
-
-[package.optional-dependencies]
-tools = [
-    { name = "crewai-tools" },
 ]
 
 [[package]]
