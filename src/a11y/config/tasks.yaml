@@ -344,96 +344,96 @@ axe_core_testing_task:
 #   context:
 #     - develop_remediation
 
-# report_generation_task:
-#   description: >
-#     Generate a comprehensive accessibility report for {url} based on the test results 
-#     and evidence provided by the technical analysis, visual testing, and Pa11y 
-#     integration agents.
+report_generation_task:
+  description: >
+    Generate a comprehensive accessibility report for {url} based on the test results 
+    and evidence provided by the technical analysis, visual testing, and Pa11y 
+    integration agents.
 
-#     Create the following sections:
+    Create the following sections:
 
-#     1. Executive Summary
-#        - Overall compliance status
-#        - Key findings summary
-#        - Critical issues overview
-#        - Business impact assessment
-#        - High-level recommendations
+    1. Executive Summary
+       - Overall compliance status
+       - Key findings summary
+       - Critical issues overview
+       - Business impact assessment
+       - High-level recommendations
 
-#     2. Technical Analysis
-#        Categorize all findings as:
-#        - Critical Issues (immediate action required)
-#          * Blocking accessibility problems
-#          * Legal compliance risks
-#          * Major user impact
-#        - Major Issues (fix within 3 months)
-#          * Significant accessibility barriers
-#          * Important WCAG violations
-#          * Moderate user impact
-#        - Minor Issues (fix within 6 months)
-#          * Minor accessibility concerns
-#          * Small WCAG violations
-#          * Limited user impact
-#        - Recommendations
-#          * Suggested improvements
-#          * Best practice implementations
-#          * Enhancement opportunities
+    2. Technical Analysis
+       Categorize all findings as:
+       - Critical Issues (immediate action required)
+         * Blocking accessibility problems
+         * Legal compliance risks
+         * Major user impact
+       - Major Issues (fix within 3 months)
+         * Significant accessibility barriers
+         * Important WCAG violations
+         * Moderate user impact
+       - Minor Issues (fix within 6 months)
+         * Minor accessibility concerns
+         * Small WCAG violations
+         * Limited user impact
+       - Recommendations
+         * Suggested improvements
+         * Best practice implementations
+         * Enhancement opportunities
 
-#     For each finding include:
-#     - Unique Issue ID (ACC-XXX)
-#     - WCAG 2.2 criterion reference
-#     - Impact severity (High/Medium/Low)
-#     - Affected user groups
-#     - Technical description
-#     - Business impact
-#     - Clear reproduction steps
-#     - Provided evidence references
-#     - Detailed remediation instructions
+    For each finding include:
+    - Unique Issue ID (ACC-XXX)
+    - WCAG 2.2 criterion reference
+    - Impact severity (High/Medium/Low)
+    - Affected user groups
+    - Technical description
+    - Business impact
+    - Clear reproduction steps
+    - Provided evidence references
+    - Detailed remediation instructions
 
-#     3. Evidence Documentation
-#        - Organize all screenshots with highlighted issues
-#        - Format code snippets with error highlights
-#        - Include step-by-step reproduction paths
-#        - Add tool output documentation
+    3. Evidence Documentation
+       - Organize all screenshots with highlighted issues
+       - Format code snippets with error highlights
+       - Include step-by-step reproduction paths
+       - Add tool output documentation
 
-#     4. Compliance Matrix
-#        Create a detailed matrix showing:
-#        - All WCAG 2.2 criteria (A, AA, AAA)
-#        - Current status (Pass/Fail/N/A)
-#        - Related findings references
-#        - Compliance notes
-#        - Retest requirements
+    4. Compliance Matrix
+       Create a detailed matrix showing:
+       - All WCAG 2.2 criteria (A, AA, AAA)
+       - Current status (Pass/Fail/N/A)
+       - Related findings references
+       - Compliance notes
+       - Retest requirements
 
-#     5. Action Plan
-#        - Prioritized issue list
-#        - Effort estimation per issue
-#        - Implementation timeline
-#        - Technical solution recommendations
-#        - Resource requirements
-#        - Progress tracking metrics
+    5. Action Plan
+       - Prioritized issue list
+       - Effort estimation per issue
+       - Implementation timeline
+       - Technical solution recommendations
+       - Resource requirements
+       - Progress tracking metrics
 
-#     Make sure to maintain consistent formatting throughout the report
-#     and include clear cross-references between sections.
+    Make sure to maintain consistent formatting throughout the report
+    and include clear cross-references between sections.
 
-#     Save all report files in the following structure under output/results/:
-#     - report.md             # Main report document
-#     - evidence/            # Folder containing all evidence
-#       - screenshots/       # Screenshots with highlights
-#       - code-snippets/    # Code examples
-#       - tool-output/      # Raw tool outputs
-#     - matrices/           # Compliance and tracking matrices
-#     - action-plan/        # Detailed action plans and timelines
+    Save all report files in the following structure under output/results/:
+    - report.md             # Main report document
+    - evidence/            # Folder containing all evidence
+      - screenshots/       # Screenshots with highlights
+      - code-snippets/    # Code examples
+      - tool-output/      # Raw tool outputs
+    - matrices/           # Compliance and tracking matrices
+    - action-plan/        # Detailed action plans and timelines
   
-#   expected_output: >
-#     A fully formatted markdown report and associated files stored in output/results/ containing:
-#     - All required sections properly structured in report.md
-#     - Organized evidence folders with proper documentation
-#     - Comprehensive compliance matrices
-#     - Detailed action plans
-#     - Cross-referenced findings with proper file paths
-#     - Properly linked evidence with relative paths
+  expected_output: >
+    A fully formatted markdown report and associated files stored in output/results/ containing:
+    - All required sections properly structured in report.md
+    - Organized evidence folders with proper documentation
+    - Comprehensive compliance matrices
+    - Detailed action plans
+    - Cross-referenced findings with proper file paths
+    - Properly linked evidence with relative paths
     
-#     The report must follow proper markdown formatting without code blocks 
-#     and maintain a professional, corporate documentation style.
-#     All file paths must be relative to ensure portability of the report package.
-#   agent: report_specialist
-#   output_file: "output/results/report.md"
+    The report must follow proper markdown formatting without code blocks 
+    and maintain a professional, corporate documentation style.
+    All file paths must be relative to ensure portability of the report package.
+  agent: report_specialist
+  output_file: "output/results/report.md"

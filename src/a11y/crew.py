@@ -107,12 +107,12 @@ class WCAGTestingCrew:
     #         verbose=True
     #     )
 
-    # @agent
-    # def report_specialist(self) -> Agent:
-    #     return Agent(
-    #         config=self.agents_config['report_specialist'],
-    #         verbose=True
-    #     )
+    @agent
+    def report_specialist(self) -> Agent:
+        return Agent(
+            config=self.agents_config['report_specialist'],
+            verbose=True
+        )
     
     @task
     def run_axe_tests(self) -> Task:
@@ -171,11 +171,11 @@ class WCAGTestingCrew:
     #         config=self.tasks_config['validate_results']
     #     )
 
-    # @task
-    # def report_generation_task(self) -> Task:
-    #     return Task(
-    #         config=self.tasks_config['report_generation_task']
-    #     )
+    @task
+    def report_generation_task(self) -> Task:
+        return Task(
+            config=self.tasks_config['report_generation_task']
+        )
 
     @crew
     def testing_crew(self) -> Crew:
@@ -185,7 +185,7 @@ class WCAGTestingCrew:
             agents=[
                 #self.accessibility_analyzer(),
                 self.axe_core_specialist(),
-                #self.report_specialist()
+                self.report_specialist()
             ],
             tasks=self.tasks,
             # manager_agent=self.compliance_controller(),
